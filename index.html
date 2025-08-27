@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dash Artigos</title>
+
+  <!-- Pré-conexão -->
+  <link rel="preconnect" href="https://script.google.com">
+  <link rel="dns-prefetch" href="https://script.google.com">
+
+  <!-- Fontes -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Sora:wght@500;700;800&display=swap"
+    rel="stylesheet">
+
+  <!-- Tailwind / SweetAlert -->
+  <script src="https://cdn.tailwindcss.com" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" defer></script>
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+
+<body class="text-gray-200">
+  <!-- Botão fixo para verificar conexão (latência) -->
+  <button id="connCheckBtn" class="conn-btn" title="Verificar conexão" aria-label="Verificar conexão">
+    <!-- Ícone de “sinal/Wi-Fi” que gira quando em teste -->
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+      stroke-linejoin="round" aria-hidden="true">
+      <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
+      <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
+      <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+      <line x1="12" y1="20" x2="12" y2="20"></line>
+    </svg>
+  </button>
+
+  <!-- Botão manual de Sync (se existir, o JS usa este; se não, cria um) -->
+  <button id="syncNowBtn"
+    style="position:fixed;top:14px;right:14px;z-index:100020;padding:6px 14px;border-radius:12px;background:linear-gradient(135deg,rgba(14,165,233,.2),rgba(56,189,248,.26));border:1px solid rgba(56,189,248,.65);color:#e7f7ff;font-weight:700;box-shadow:0 0 12px rgba(56,189,248,.55),inset 0 0 12px rgba(14,165,233,.26);cursor:pointer;">
+    Sync
+  </button>
+
+  <div class="page-wrap p-6">
+    <!-- Header -->
+    <div class="max-w-6xl mx-auto px-6">
+      <header class="text-center mb-4">
+        <h1 class="text-5xl neon-text">Dash Artigos</h1>
+      </header>
+    </div>
+
+    <!-- FORM -->
+    <div class="form-wrap max-w-6xl mx-auto px-6">
+      <section class="form-section card p-6 mb-12">
+        <form id="campaignForm" class="grid grid-cols-1 md:grid-cols-2 gap-6" autocomplete="off">
+          <input type="hidden" id="editIndex" name="editIndex" value="-1" />
+
+          <!-- Tema + Categoria -->
+          <div>
+            <label for="tema">Nome do Tema</label>
+            <input type="text" id="tema" name="tema" class="dark-input" placeholder="Título do Artigo" required>
+          </div>
+          <div>
+            <label for="categoria">Categoria</label>
+            <input type="text" id="categoria" name="categoria" class="dark-input" placeholder="Ex.: Saúde, Finanças…"
+              required>
+          </div>
+
+          <!-- Artigo + Drive -->
+          <div>
+            <label for="link_artigo">Link do Artigo</label>
+            <input type="url" id="link_artigo" name="link_artigo" class="dark-input" placeholder="https://..." required>
+          </div>
+          <div>
+            <label for="link_drive">Link da Pasta no Drive</label>
+            <input type="url" id="link_drive" name="link_drive" class="dark-input" placeholder="https://..." required>
+          </div>
+
+          <!-- País + Idioma -->
+          <div>
+            <label for="pais">País</label>
+            <input list="lista-paises" id="pais" name="pais" class="dark-input" placeholder="Escolha um País..."
+              required>
+            <datalist id="lista-paises">
+              <option>Afeganistão - AF</option>
+              <option>África do Sul - ZA</option>
+              <option>Alemanha - DE</option>
+              <option>Andorra - AD</option>
+              <option>Angola - AO</option>
+              <option>Arábia Saudita - SA</option>
+              <option>Argentina - AR</option>
+              <option>Austrália - AU</option>
+              <option>Áustria - AT</option>
+              <option>Bélgica - BE</option>
+              <option>Bolívia - BO</option>
+              <option>Brasil - BR</option>
+              <option>Canadá - CA</option>
+              <option>Chile - CL</option>
+              <option>China - CN</option>
+              <option>Chipre - CY</option>
+              <option>Colômbia - CO</option>
+              <option>Coreia do Sul - KR</option>
+              <option>Costa Rica - CR</option>
+              <option>Croácia - HR</option>
+              <option>Cuba - CU</option>
+              <option>Dinamarca - DK</option>
+              <option>Egito - EG</option>
+              <option>Equador - EC</option>
+              <option>Eslováquia - SK</option>
+              <option>Espanha - ES</option>
+              <option>Estados Unidos - US</option>
+              <option>Filipinas - PH</option>
+              <option>Finlândia - FI</option>
+              <option>França - FR</option>
+              <option>Grécia - GR</option>
+              <option>Guatemala - GT</option>
+              <option>Holanda - NL</option>
+              <option>Honduras - HN</option>
+              <option>Hungria - HU</option>
+              <option>Índia - IN</option>
+              <option>Indonésia - ID</option>
+              <option>Irlanda - IE</option>
+              <option>Islândia - IS</option>
+              <option>Israel - IL</option>
+              <option>Itália - IT</option>
+              <option>Japão - JP</option>
+              <option>Líbano - LB</option>
+              <option>Luxemburgo - LU</option>
+              <option>México - MX</option>
+              <option>Noruega - NO</option>
+              <option>Nova Zelândia - NZ</option>
+              <option>Panamá - PA</option>
+              <option>Paraguai - PY</option>
+              <option>Peru - PE</option>
+              <option>Polônia - PL</option>
+              <option>Portugal - PT</option>
+              <option>Quênia - KE</option>
+              <option>República Dominicana - DO</option>
+              <option>Romênia - RO</option>
+              <option>Rússia - RU</option>
+              <option>Singapura - SG</option>
+              <option>Suécia - SE</option>
+              <option>Suíça - CH</option>
+              <option>Tailândia - TH</option>
+              <option>Turquia - TR</option>
+              <option>Ucrânia - UA</option>
+              <option>Uruguai - UY</option>
+              <option>Venezuela - VE</option>
+              <option>Vietnã - VN</option>
+            </datalist>
+          </div>
+          <div>
+            <label for="idioma">Idioma</label>
+            <input list="lista-idiomas" id="idioma" name="idioma" class="dark-input" placeholder="EN, ES, PT..."
+              required>
+            <datalist id="lista-idiomas">
+              <option>AR - Árabe</option>
+              <option>BG - Búlgaro</option>
+              <option>CA - Catalão</option>
+              <option>CS - Tcheco</option>
+              <option>DA - Dinamarquês</option>
+              <option>DE - Alemão</option>
+              <option>EL - Grego</option>
+              <option>EN - Inglês</option>
+              <option>ES - Espanhol</option>
+              <option>ET - Estoniano</option>
+              <option>FA - Persa</option>
+              <option>FI - Finlandês</option>
+              <option>FR - Francês</option>
+              <option>HE - Hebraico</option>
+              <option>HI - Hindi</option>
+              <option>HR - Croata</option>
+              <option>HU - Húngaro</option>
+              <option>ID - Indonésio</option>
+              <option>IS - Islandês</option>
+              <option>IT - Italiano</option>
+              <option>JA - Japonês</option>
+              <option>KO - Coreano</option>
+              <option>LT - Lituano</option>
+              <option>LV - Letão</option>
+              <option>MS - Malaio</option>
+              <option>NL - Neerlandês</option>
+              <option>NO - Norueguês</option>
+              <option>PL - Polonês</option>
+              <option>PT - Português</option>
+              <option>RO - Romeno</option>
+              <option>RU - Russo</option>
+              <option>SK - Eslovaco</option>
+              <option>SL - Esloveno</option>
+              <option>SR - Sérvio</option>
+              <option>SV - Sueco</option>
+              <option>TH - Tailandês</option>
+              <option>TR - Turco</option>
+              <option>UK - Ucraniano</option>
+              <option>UR - Urdu</option>
+              <option>VI - Vietnamita</option>
+              <option>ZH - Chinês</option>
+            </datalist>
+          </div>
+
+          <!-- Criativos + Plataforma -->
+          <div>
+            <label for="link_criativos">Links Criativos</label>
+            <input type="url" id="link_criativos" name="link_criativos" class="dark-input" placeholder="https://..."
+              required>
+          </div>
+          <div>
+            <label for="plataforma">Plataforma</label>
+            <input list="lista-plataformas" id="plataforma" name="plataforma" class="dark-input" placeholder="GO, MT" required>
+            <datalist id="lista-plataformas">
+              <option>MT - Facebook</option>
+              <option>GO - Google</option>
+            </datalist>
+          </div>
+
+          <!-- Botão -->
+          <div class="md:col-span-2 text-center">
+            <button type="submit" id="saveBtn" class="neon-btn neon-save px-6 py-2">Salvar Campanha</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <!-- Tabela -->
+    <div class="table-wrap max-w-6xl mx-auto px-6">
+      <section class="table-section card p-6">
+        <div class="overflow-x-auto">
+          <table id="campaignTable" class="min-w-full divide-y divide-gray-700 text-gray-100">
+            <thead class="bg-gray-900/70">
+              <tr>
+                <th>Tema</th>
+                <th>Categoria</th>
+                <th>Artigo</th>
+                <th>Drive</th>
+                <th>País</th>
+                <th>Idioma</th>
+                <th>Criativos</th>
+                <th>Plataforma</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- JS -->
+  <script type="module" src="js/ui.js"></script>
+  <script type="module" src="js/sync-addon.js"></script>
+</body>
+
+</html>
