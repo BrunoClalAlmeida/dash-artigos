@@ -9,23 +9,17 @@
   <!-- Pré-conexões -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <!-- Pré-conexão para Apps Script (ping/sync) -->
   <link rel="preconnect" href="https://script.google.com">
 
   <!-- Fontes -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Sora:wght@500;700;800&display=swap"
     rel="stylesheet">
 
-  <!-- CSS -->
-  <link rel="stylesheet" href="/css/base.css">
-  <link rel="stylesheet" href="/css/components.css">
+  <!-- CSS (com bust de cache) -->
+  <link rel="stylesheet" href="/css/base.css?v=2025-08-28-2">
+  <link rel="stylesheet" href="/css/components.css?v=2025-08-28-2">
 
   <meta name="theme-color" content="#0f172a">
-
-  <!-- Preload de módulos -->
-  <link rel="modulepreload" href="/js/core.js">
-  <link rel="modulepreload" href="/js/ui.js">
-  <link rel="modulepreload" href="/js/sync-addon.js">
 </head>
 
 <body class="text-gray-200">
@@ -336,12 +330,11 @@
 
   <!-- JS de terceiros -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" crossorigin="anonymous"></script>
 
-  <!-- Scripts (todos separados, sem inline) -->
-  <script type="module" src="/js/error-handler.js"></script>
-  <script type="module" src="/js/ui.js"></script>
-  <script type="module" src="/js/sync-addon.js"></script>
+  <!-- Scripts (separados, com bust de cache) -->
+  <script type="module" src="/js/error-handler.js?v=2025-08-28-2" crossorigin="anonymous"></script>
+  <script type="module" src="/js/bootstrap.js?v=2025-08-28-2" crossorigin="anonymous"></script>
 </body>
 
 </html>

@@ -9,15 +9,23 @@ import {
     uid, esc, sanitizeURL,
     sendToSheets, drainOutbox, refreshFromServer, enqueue,
     flushOutboxKeepalive
-} from "/js/core.js"; // <- ABSOLUTO para evitar problemas em prod
+} from "./core.js";
 
 /**
- * Dash Artigos — UI completo
+ * Dash Artigos — UI completo:
+ * - Servidor como verdade (merge remoto autoritativo)
+ * - Sync entre dispositivos (polling 5s + refresh pós-ação)
+ * - Outbox com backoff e keepalive
+ * - Exclusão com senha (3 tentativas) — modal restaurada com olho
+ * - Botão de conexão: gira o ícone do próprio botão (sem spinner extra)
+ * - Botão de Sync: “Sincronizando...” (estático), sem piscas/letras
+ * - Botão Salvar: “Salvando...” (estático), sem spinner
+ * - Tabela responsiva, tooltips e dropdown customizados
  */
 
-let render; // definido após DOMContentLoaded
+let render; // definido após init()
 
-document.addEventListener("DOMContentLoaded", () => {
+function startUI() {
     const form = document.getElementById("campaignForm");
     const tbody = document.querySelector("#campaignTable tbody");
     const connBtn = document.getElementById("connCheckBtn");
@@ -25,9 +33,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const paisInput = document.getElementById("pais");
     const idiomaInput = document.getElementById("idioma");
     const categoriaInput = document.getElementById("categoria");
-
-    // Marcar dono do botão Sync para evitar handlers duplicados (com sync-addon.js)
-    if (syncBtn) syncBtn.dataset.owner = "ui";
 
     /* =========================
        Modal de senha (restaurada)
@@ -94,7 +99,6 @@ document.addEventListener("DOMContentLoaded", () => {
             preConfirm: () => (document.getElementById("pwd-input")?.value ?? "")
         });
     }
-
     function linkBtn(label, url) {
         const u = sanitizeURL(url); if (!u) return "";
         return `
@@ -295,41 +299,20 @@ document.addEventListener("DOMContentLoaded", () => {
         const idx = Number.isNaN(parseInt(idxRaw, 10)) ? -1 : parseInt(idxRaw, 10);
         const existing = (idx >= 0) ? campanhas[idx] : null;
 
-        // Validação forte de URL (bloqueia submit se inválida)
-        const rawArtigo = form.link_artigo.value.trim();
-        const rawDrive = form.link_drive.value.trim();
-        const rawCriativos = form.link_criativos.value.trim();
-
-        const safeArtigo = sanitizeURL(rawArtigo);
-        const safeDrive = sanitizeURL(rawDrive);
-        const safeCriativos = sanitizeURL(rawCriativos);
-
-        if (!safeArtigo || !safeDrive || !safeCriativos) {
-            if (submitBtn) {
-                submitBtn.textContent = originalSubmitTxt || "Salvar Campanha";
-                submitBtn.removeAttribute("aria-busy");
-                submitBtn.disabled = false;
-            }
-            await Swal.fire({
-                customClass: { popup: "dark-modal", confirmButton: "neon-btn neon-save" },
-                background: "#0f172a", color: "#e2e8f0",
-                icon: "error", title: "URLs inválidas",
-                html: "Verifique: <b>Artigo</b>, <b>Drive</b> e <b>Criativos</b> precisam ser http(s) válidos.",
-                confirmButtonText: "OK"
-            });
-            return;
-        }
+        const safeArtigo = sanitizeURL(form.link_artigo.value.trim());
+        const safeDrive = sanitizeURL(form.link_drive.value.trim());
+        const safeCriativos = sanitizeURL(form.link_criativos.value.trim());
 
         const data = {
             id: existing?.id || uid(),
             status: existing?.status || "ATIVO",
             tema: form.tema.value.trim(),
             categoria: categoriaInput.value.trim(),
-            link_artigo: safeArtigo,
-            link_drive: safeDrive,
+            link_artigo: safeArtigo || form.link_artigo.value.trim(),
+            link_drive: safeDrive || form.link_drive.value.trim(),
             pais: paisInput.value.trim(),
             plataforma: form.plataforma.value.trim(),
-            link_criativos: safeCriativos,
+            link_criativos: safeCriativos || form.link_criativos.value.trim(),
             idioma: idiomaInput.value.trim()
             // updated vem do servidor
         };
@@ -465,13 +448,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     /* =========================
-       Tooltip (acessível)
+       Tooltip (igual)
     ========================= */
-    const tip = document.createElement("div");
-    tip.className = "tip-layer";
-    tip.setAttribute("role", "tooltip"); // ARIA
-    document.body.appendChild(tip);
-
+    const tip = document.createElement("div"); tip.className = "tip-layer"; document.body.appendChild(tip);
     let tipTarget = null;
     function positionTip(el) {
         const pad = 10, off = 10;
@@ -489,16 +468,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     function showTipFor(el, text) {
         if (!text) return; tipTarget = el; tip.innerHTML = text.replace(/\n/g, "<br>");
-        positionTip(el);
-        const id = "tip-" + (el.dataset.id || el.getAttribute("data-id") || uid());
-        tip.id = id;
-        el.setAttribute("aria-describedby", id); // ARIA
-        tip.setAttribute("data-show", "true");
+        positionTip(el); tip.setAttribute("data-show", "true");
     }
-    function hideTip() {
-        if (tipTarget) tipTarget.removeAttribute("aria-describedby");
-        tipTarget = null; tip.removeAttribute("data-show");
-    }
+    function hideTip() { tipTarget = null; tip.removeAttribute("data-show"); }
     function enterHandler(ev) {
         const el = ev.target.closest("[data-tip],[title]"); if (!el) return;
         if (el.hasAttribute("title")) { const t = el.getAttribute("title"); if (t) el.setAttribute("data-tip", t); el.removeAttribute("title"); }
@@ -516,7 +488,7 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener("resize", () => { if (tipTarget) positionTip(tipTarget); });
 
     /* =========================
-       Conexão (ping)
+       Conexão (ping) — ícone gira via .loading
     ========================= */
     function setConnBtn(state, tipText) {
         if (!connBtn) return;
@@ -538,7 +510,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const classify = (ms) => (ms < 350 ? "fast" : ms < 1000 ? "med" : "slow");
     async function runConnCheck() {
         if (!connBtn) return;
-        connBtn.classList.add("loading");
+        connBtn.classList.add("loading"); // gira o SVG do botão
 
         if (!navigator.onLine) {
             setConnBtn("status-off", "Sem conexão com a internet");
@@ -570,11 +542,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (connBtn) {
         connBtn.addEventListener("click", runConnCheck);
-        setTimeout(runConnCheck, 800);
+        setTimeout(runConnCheck, 800); // ping inicial
     }
 
     /* =========================
-       Botão "Sync"
+       Botão "Sync" — sem piscar/letra-a-letra
     ========================= */
     if (syncBtn) {
         const originalSyncTxt = syncBtn.textContent.trim() || "Sync";
@@ -638,4 +610,11 @@ document.addEventListener("DOMContentLoaded", () => {
     document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "hidden") flushOutboxKeepalive();
     });
-});
+}
+
+// ---- Auto-init seguro: roda agora se o DOM já estiver pronto, senão espera o evento
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", startUI, { once: true });
+} else {
+    startUI();
+}

@@ -5,7 +5,7 @@ import {
     pendingIdsFromOutbox,
     drainOutbox,
     refreshFromServer
-} from "/js/core.js"; // <- ABSOLUTO
+} from "./core.js";
 
 function getOrMakeSyncButton() {
     let btn = document.getElementById("syncNowBtn");
@@ -60,37 +60,34 @@ function markPendingRows() {
     });
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+function startSyncAddon() {
     const btn = getOrMakeSyncButton();
     updateSyncBadge(btn);
     markPendingRows();
 
-    // Só registra o clique se o UI não for o dono
-    if (btn.dataset.owner !== "ui") {
-        btn.addEventListener("click", async () => {
-            if (btn.disabled) return;
-            const prevText = btn.textContent;
-            btn.disabled = true;
-            btn.textContent = "Sincronizando...";
-            try {
-                const sent = await drainOutbox(true);
-                await refreshFromServer();
-                if (window.Swal) {
-                    window.Swal.fire({
-                        toast: true, position: "bottom-end", timer: 1800, showConfirmButton: false,
-                        icon: sent > 0 ? "success" : "info",
-                        title: sent > 0 ? `Enviadas ${sent} pendências` : "Sincronizado",
-                        background: "#0f172a", color: "#e2e8f0"
-                    });
-                }
-            } finally {
-                btn.disabled = false;
-                btn.textContent = prevText;
-                updateSyncBadge(btn);
-                markPendingRows();
+    btn.addEventListener("click", async () => {
+        if (btn.disabled) return;
+        const prevText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "Sincronizando..."; // ✅ sem piscar/letra a letra
+        try {
+            const sent = await drainOutbox(true);
+            await refreshFromServer();
+            if (window.Swal) {
+                window.Swal.fire({
+                    toast: true, position: "bottom-end", timer: 1800, showConfirmButton: false,
+                    icon: sent > 0 ? "success" : "info",
+                    title: sent > 0 ? `Enviadas ${sent} pendências` : "Sincronizado",
+                    background: "#0f172a", color: "#e2e8f0"
+                });
             }
-        });
-    }
+        } finally {
+            btn.disabled = false;
+            btn.textContent = prevText.includes("Sincronizando") ? "Sync" : prevText;
+            updateSyncBadge(btn); // volta para "Sync" ou "Sync (N)"
+            markPendingRows();
+        }
+    });
 
     // atualizações leves
     window.addEventListener("online", () => { updateSyncBadge(btn); markPendingRows(); });
@@ -102,4 +99,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
     setInterval(() => { updateSyncBadge(btn); markPendingRows(); }, 3000);
-});
+}
+
+// ---- Auto-init seguro
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", startSyncAddon, { once: true });
+} else {
+    startSyncAddon();
+}
