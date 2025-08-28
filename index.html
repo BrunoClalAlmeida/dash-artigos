@@ -63,11 +63,94 @@
             <label for="tema">Nome do Tema</label>
             <input type="text" id="tema" name="tema" class="dark-input" placeholder="Título do Artigo" required>
           </div>
+          <!-- Categoria (ordem alfabética, mesmo estilo de País/Idioma) -->
           <div>
             <label for="categoria">Categoria</label>
-            <input type="text" id="categoria" name="categoria" class="dark-input" placeholder="Ex.: Saúde, Finanças…"
-              required>
+            <input list="lista-categorias" id="categoria" name="categoria" class="dark-input"
+              placeholder="Escolha uma Categoria..." required>
+            <datalist id="lista-categorias">
+              <option>Anuidade</option>
+              <option>Anvisa</option>
+              <option>Apple TV</option>
+              <option>Aplicativos</option>
+              <option>Aposentadoria</option>
+              <option>Apostas / Bets</option>
+              <option>Bancos</option>
+              <option>Banco Central</option>
+              <option>Banco do Brasil</option>
+              <option>Bitcoins</option>
+              <option>Bolsa de Valores</option>
+              <option>Bolsa Família</option>
+              <option>BRB</option>
+              <option>Bradesco</option>
+              <option>BTG</option>
+              <option>C6 Bank</option>
+              <option>Caixa</option>
+              <option>Caixa Econômica Federal</option>
+              <option>Cartões de Crédito</option>
+              <option>Cartões de Débito</option>
+              <option>CashBack</option>
+              <option>CDC</option>
+              <option>Concursos</option>
+              <option>Cursos</option>
+              <option>CPF na Nota</option>
+              <option>Direitos Trabalhistas</option>
+              <option>Disney Plus</option>
+              <option>Dívidas</option>
+              <option>Economia</option>
+              <option>Empréstimo Pessoal</option>
+              <option>Emprego</option>
+              <option>Enem</option>
+              <option>Feirão Limpa Nome</option>
+              <option>FGTS</option>
+              <option>Financiamento</option>
+              <option>Golpes</option>
+              <option>Imposto de Renda</option>
+              <option>Impostos</option>
+              <option>INSS</option>
+              <option>Inter</option>
+              <option>Investimento</option>
+              <option>IPTU</option>
+              <option>IPVA</option>
+              <option>Itaú</option>
+              <option>Juros rotativo</option>
+              <option>Lei</option>
+              <option>Leilão</option>
+              <option>Loteria</option>
+              <option>Master</option>
+              <option>Marketplace</option>
+              <option>MEI</option>
+              <option>Milhas</option>
+              <option>Minha Casa, Minha Vida</option>
+              <option>Netflix</option>
+              <option>Nomad</option>
+              <option>Nubank</option>
+              <option>PagBank</option>
+              <option>PicPay</option>
+              <option>PIX</option>
+              <option>PIS / PASEP</option>
+              <option>Planejamento Familiar</option>
+              <option>Prime</option>
+              <option>Programa de Pé de Meia</option>
+              <option>Programa de pontos</option>
+              <option>Receita Federal</option>
+              <option>Renda Extra</option>
+              <option>Safra</option>
+              <option>Sala Vip</option>
+              <option>Saque-Aniversário</option>
+              <option>Santander</option>
+              <option>Score</option>
+              <option>Seguros</option>
+              <option>Seguro-Desemprego</option>
+              <option>Serasa</option>
+              <option>Streaming</option>
+              <option>Uncategorized</option>
+              <option>Vale Alimentação</option>
+              <option>Vale Refeição</option>
+              <option>Visa</option>
+            </datalist>
           </div>
+
 
           <!-- Artigo + Drive -->
           <div>
@@ -209,7 +292,8 @@
           </div>
           <div>
             <label for="plataforma">Plataforma</label>
-            <input list="lista-plataformas" id="plataforma" name="plataforma" class="dark-input" placeholder="GO, MT" required>
+            <input list="lista-plataformas" id="plataforma" name="plataforma" class="dark-input" placeholder="Escolha uma Plataforma..."
+              required>
             <datalist id="lista-plataformas">
               <option>MT - Facebook</option>
               <option>GO - Google</option>
