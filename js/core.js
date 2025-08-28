@@ -52,10 +52,21 @@ export const normalizeForCompare = s => {
 export const PASS_NORM = normalizeForCompare(DELETE_PASSWORD);
 
 /* =========================
-   ESTADO
+   ESTADO (leitura segura)
 ========================= */
-export let campanhas = JSON.parse(localStorage.getItem(LS_DATA_KEY) || "[]");
-export let outbox = JSON.parse(localStorage.getItem(LS_OUTBOX_KEY) || "[]");
+function safeParse(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    const val = JSON.parse(raw);
+    return (val ?? fallback);
+  } catch {
+    return fallback;
+  }
+}
+
+export let campanhas = safeParse(LS_DATA_KEY, []);
+export let outbox = safeParse(LS_OUTBOX_KEY, []);
 let lastUpdatedMs = Number(localStorage.getItem(LS_LAST_UPDATED) || "0") || 0;
 
 export const saveData = () => localStorage.setItem(LS_DATA_KEY, JSON.stringify(campanhas));
@@ -97,9 +108,9 @@ export async function sendToSheets(payload, op) {
    READ com fallback robusto
 ========================= */
 export async function listFromSheets() {
-  // 1) PRIMEIRO CARREGAMENTO: sem lastUpdated -> traga TUDO
+  // 1) primeiro carregamento: sem lastUpdated -> traga TUDO
   if (!lastUpdatedMs || !Number.isFinite(lastUpdatedMs) || lastUpdatedMs <= 0) {
-    const full = await call("read", {}); // sem 'since' para forçar retorno completo
+    const full = await call("read", {});
     if (full.last_updated) saveLastUpdated(full.last_updated);
     const rows = Array.isArray(full.rows) ? full.rows : [];
     return rows
@@ -119,13 +130,11 @@ export async function listFromSheets() {
       .filter(x => x.id);
   }
 
-  // 2) INCREMENTAL: temos lastUpdated -> tenta diff
+  // 2) incremental
   const diff = await call("read", { since: lastUpdatedMs });
-  // a) se servidor disser 'unchanged', mantenha local
   if (diff.unchanged) {
-    // b) MAS se local estiver vazio, faz fallback para leitura completa (conserta “vazio até criar algo novo”)
     if (!Array.isArray(campanhas) || campanhas.length === 0) {
-      const full = await call("read", {}); // força full read
+      const full = await call("read", {});
       if (full.last_updated) saveLastUpdated(full.last_updated);
       const rowsFull = Array.isArray(full.rows) ? full.rows : [];
       return rowsFull
@@ -244,14 +253,13 @@ export function mergeRemoteAuthoritative(localArr, remoteArr) {
 ========================= */
 export async function refreshFromServer(onChange) {
   try {
-    const remote = await listFromSheets(); // pode vir vazio em caso de planilha vazia
+    const remote = await listFromSheets();
     const merged = mergeRemoteAuthoritative(campanhas, remote);
     if (JSON.stringify(merged) !== JSON.stringify(campanhas)) {
       campanhas = merged;
       saveData();
       onChange?.(campanhas);
     } else if (!campanhas.length && remote.length) {
-      // garante render no primeiro carregamento mesmo se arrays iguais por referência
       campanhas = remote;
       saveData();
       onChange?.(campanhas);
