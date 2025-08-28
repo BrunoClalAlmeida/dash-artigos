@@ -1,7 +1,7 @@
 // js/core.js
 "use strict";
 
-export const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyiIgqviJRTKLmAGD1J0UcMzz6nF42F-m4PL9tQ_yU5K92lghGeEJ8b_gtzws0JWkIr/exec";
+export const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby_E79XJV81iJj4OjKdwxUh-jiAunuVWVfXV-4ytH-8uD4Dj9j9b54MLFYWgTjqP_6OyQ/exec";
 export const SHEETS_KEY = "rocketdashartigos";
 
 // Senha de exclusão
