@@ -99,10 +99,6 @@ document.addEventListener("DOMContentLoaded", () => {
             preConfirm: () => (document.getElementById("pwd-input")?.value ?? "")
         });
     }
-
-    /* =========================
-       Helpers UI
-    ========================= */
     function linkBtn(label, url) {
         const u = sanitizeURL(url); if (!u) return "";
         return `

@@ -7,7 +7,6 @@ import {
     refreshFromServer
 } from "./core.js";
 
-/** Usa o botão #syncNowBtn se existir. Se não, cria um. */
 function getOrMakeSyncButton() {
     let btn = document.getElementById("syncNowBtn");
     if (btn) return btn;

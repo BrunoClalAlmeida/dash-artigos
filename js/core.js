@@ -1,9 +1,6 @@
 // js/core.js
 "use strict";
 
-/* =========================
-   CONFIG
-========================= */
 export const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyiIgqviJRTKLmAGD1J0UcMzz6nF42F-m4PL9tQ_yU5K92lghGeEJ8b_gtzws0JWkIr/exec";
 export const SHEETS_KEY = "rocketdashartigos";
 
