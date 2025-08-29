@@ -213,7 +213,7 @@ textarea {
   text-shadow: 0 0 6px rgba(56, 189, 248, .25);
 }
 
-/* alinhar cabeçalho Tema exatamente onde começam os textos do Tema */
+/* alinhar cabeçalho Tema exatamente com o início do texto do Tema */
 #campaignTable thead th:nth-child(1) {
   text-align: left;
   padding-left: calc(1.5rem + var(--tema-badge) + var(--tema-gap));
@@ -338,7 +338,7 @@ textarea {
   margin-top: 0;
 }
 
-/* ==== clamp defensivo de 2 linhas (sem comprimir o desktop) ==== */
+/* sem clamp no desktop */
 .tema-ellipsis {
   display: block;
   white-space: normal;
@@ -422,8 +422,9 @@ textarea {
     height: 18px !important;
   }
 
-  /* ===== TABELA EM CARDS ===== */
+  /* ===== TABELA EM CARDS — ALINHAMENTO PERFEITO ===== */
 
+  /* esconder cabeçalho */
   .table-section thead {
     position: absolute !important;
     width: 1px;
@@ -448,33 +449,35 @@ textarea {
     border-radius: 14px;
     box-shadow: 0 0 14px rgba(14, 165, 233, .16);
     margin: 12px 0;
-    padding: 10px 10px;
-    position: relative;
+    padding: 10px;
   }
 
-  /* calha fixa de rótulos (garante alinhamento entre TODAS as linhas) */
+  /* calha fixa de rótulos: usa FLEX (nada de absolute/padding) */
   :root {
-    --mobile-label-w: 110px;
-    /* largura do rótulo (ajuste fino se quiser) */
-    --mobile-label-gap: 18px;
-    /* espaço entre rótulo e conteúdo */
+    --mobile-label-w: 120px;
+    /* largura do rótulo — pode ajustar fino */
+    --mobile-label-gap: 14px;
+    /* gap entre rótulo e conteúdo */
   }
 
   #campaignTable tbody td {
     border: none !important;
-    padding: 10px 10px 10px calc(var(--mobile-label-w) + var(--mobile-label-gap)) !important;
-    text-align: left !important;
+    padding: 8px 6px !important;
+    display: flex;
+    /* ← duas colunas: label + conteúdo */
+    align-items: flex-start;
+    gap: var(--mobile-label-gap);
     white-space: normal !important;
     overflow-wrap: anywhere;
-    position: relative;
+    text-align: left !important;
   }
 
   #campaignTable tbody td::before {
     content: attr(data-label);
-    position: absolute;
-    left: 10px;
-    top: 10px;
-    width: var(--mobile-label-w);
+    flex: 0 0 var(--mobile-label-w);
+    /* ← largura fixa do rótulo */
+    min-width: var(--mobile-label-w);
+    max-width: var(--mobile-label-w);
     font-family: var(--font-title);
     font-weight: 700;
     letter-spacing: .04em;
@@ -482,34 +485,26 @@ textarea {
     text-shadow: 0 0 6px rgba(56, 189, 248, .25);
   }
 
-  /* Tema: badge ancorado na calha; texto começa alinhado com os demais */
-  #campaignTable tbody td[data-label="Tema"] {
-    position: relative;
-  }
-
+  /* Tema no mobile: badge + texto ficam na coluna do conteúdo (alinhados com os demais) */
   #campaignTable tbody td[data-label="Tema"] .tema-cell {
-    display: block !important;
-    min-height: 44px;
+    display: flex !important;
+    align-items: center;
+    gap: var(--tema-gap);
+    min-height: unset;
   }
 
-  #campaignTable tbody td[data-label="Tema"] .tema-index {
-    position: absolute;
-    left: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    inline-size: var(--tema-badge);
-    block-size: var(--tema-badge);
+  /* badge menor no mobile */
+  :root {
+    --tema-badge: 28px;
+    --tema-gap: .5rem;
   }
 
-  #campaignTable tbody td[data-label="Tema"] .tema-text {
-    display: block;
-    margin-left: 0;
-    white-space: normal;
-    overflow: visible;
-    text-overflow: clip;
+  .tema-text {
+    font-size: 1rem !important;
+    letter-spacing: .04em !important;
   }
 
-  /* chips quebram */
+  /* chips quebram gentilmente */
   .table-section tbody td .chip,
   .table-section tbody td .chip--pill,
   .table-section tbody td .chip--hollow {
@@ -541,7 +536,7 @@ textarea {
     min-width: 0 !important;
   }
 
-  /* área da tabela sem overflow horizontal */
+  /* sem overflow horizontal */
   .table-section .overflow-x-auto {
     overflow: visible !important;
     max-height: none !important;

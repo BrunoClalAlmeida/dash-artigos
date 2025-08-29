@@ -3,7 +3,7 @@
 
 import {
     WEB_APP_URL, SHEETS_KEY,
-    DELETE_PASSWORD, CASE_INSENSITIVE, PASS_NORM, normalizeForCompare,
+    DELETE_PASSWORD, CASE_INSENSITIVE, PASS_NORM, normalizeForCompare, // continua importado mas não usado
     SERVER_REFRESH_MS, RETRY_INTERVAL_MS,
     campanhas, saveData,
     uid, esc, sanitizeURL,
@@ -12,11 +12,11 @@ import {
 } from "./core.js";
 
 /**
- * Dash Artigos — UI completo:
+ * Dash Artigos — UI completo (exclusão sem senha):
  * - Servidor como verdade (merge remoto autoritativo)
  * - Sync entre dispositivos (polling 5s + refresh pós-ação)
  * - Outbox com backoff e keepalive
- * - Exclusão com senha (3 tentativas) — modal restaurada com olho
+ * - Exclusão: apenas confirmação (SEM senha)
  * - Botão de conexão: gira o ícone do próprio botão (sem spinner extra)
  * - Botão de Sync: “Sincronizando...” (estático), sem piscas/letras
  * - Botão Salvar: “Salvando...” (estático), sem spinner
@@ -34,71 +34,7 @@ function startUI() {
     const idiomaInput = document.getElementById("idioma");
     const categoriaInput = document.getElementById("categoria");
 
-    /* =========================
-       Modal de senha (restaurada)
-    ========================= */
-    function passwordDialog() {
-        return Swal.fire({
-            customClass: {
-                popup: "dark-modal",
-                confirmButton: "neon-btn neon-confirm",
-                cancelButton: "neon-btn neon-save",
-            },
-            background: "#0f172a",
-            color: "#e2e8f0",
-            icon: "question",
-            title: "Digite a senha",
-            html: `
-        <div class="pwd-wrap">
-          <input id="pwd-input" type="password"
-                 class="swal2-input pwd-input"
-                 placeholder="Senha"
-                 autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
-          <button type="button" id="pwd-eye" class="pwd-eye-btn"
-                  aria-label="Mostrar senha" aria-pressed="false" title="Mostrar senha">
-            <svg class="pwd-eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"></path>
-              <circle cx="12" cy="12" r="3"></circle>
-            </svg>
-            <svg class="pwd-eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.77 21.77 0 0 1 5.06-6.06"></path>
-              <path d="M1 1l22 22"></path>
-              <path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.77 21.77 0 0 1-3.16 4.19"></path>
-              <path d="M14.12 14.12A3 3 0 0 1 9.88 9.88"></path>
-            </svg>
-          </button>
-        </div>
-        <div class="pwd-hint">Pressione <b>Enter</b> para confirmar · <b>Esc</b> para cancelar</div>
-      `,
-            showCancelButton: true,
-            confirmButtonText: "Confirmar",
-            cancelButtonText: "Cancelar",
-            willOpen: () => {
-                const inp = document.getElementById("pwd-input");
-                const btn = document.getElementById("pwd-eye");
-                let visible = false;
-
-                const apply = () => {
-                    inp.type = visible ? "text" : "password";
-                    btn.setAttribute("aria-pressed", String(visible));
-                    btn.title = visible ? "Ocultar senha" : "Mostrar senha";
-                    btn.classList.toggle("is-showing", visible);
-                };
-                apply();
-
-                btn.addEventListener("click", () => { visible = !visible; apply(); inp.focus(); });
-                btn.addEventListener("keydown", (e) => {
-                    if (e.key === " " || e.key === "Enter") { e.preventDefault(); visible = !visible; apply(); }
-                });
-                inp.addEventListener("keydown", (e) => { if (e.key === "Enter") Swal.clickConfirm(); });
-
-                setTimeout(() => inp?.focus(), 0);
-            },
-            preConfirm: () => (document.getElementById("pwd-input")?.value ?? "")
-        });
-    }
+    // ===== helper link
     function linkBtn(label, url) {
         const u = sanitizeURL(url); if (!u) return "";
         return `
@@ -233,29 +169,16 @@ function startUI() {
             const index = Number(btnDelete.dataset.index);
             const c = campanhas[index]; if (!c) return;
 
+            // === SOMENTE CONFIRMAÇÃO (sem senha) ===
             const ask = await Swal.fire({
                 customClass: { popup: "dark-modal", confirmButton: "neon-btn neon-danger", cancelButton: "neon-btn neon-save" },
                 background: "#0f172a", color: "#e2e8f0",
                 icon: "warning", title: "Excluir este registro?",
                 html: `Tem certeza que deseja <b>excluir definitivamente</b> este cadastro?<br><br>
-              <span class="neon-label">Tema:</span> <b>${esc(c.tema)}</b>`,
+               <span class="neon-label">Tema:</span> <b>${esc(c.tema)}</b>`,
                 showCancelButton: true, confirmButtonText: "Sim, excluir", cancelButtonText: "Cancelar", reverseButtons: true
             });
             if (!ask.isConfirmed) return;
-
-            // === Pedir SENHA (3 tentativas) ===
-            let authed = false;
-            for (let tries = 0; tries < 3; tries++) {
-                const pwd = await passwordDialog();
-                if (!pwd.isConfirmed) return; // cancelou
-                const inputNorm = normalizeForCompare(pwd.value || "");
-                if (inputNorm === PASS_NORM) { authed = true; break; }
-                await Swal.fire({
-                    toast: true, position: "bottom-end", timer: 2000, showConfirmButton: false, icon: "error",
-                    title: "Senha Errada, Tente Novamente", background: "#0f172a", color: "#e2e8f0"
-                });
-            }
-            if (!authed) return;
 
             // exclusão local
             campanhas.splice(index, 1); saveData(); render();
@@ -612,7 +535,7 @@ function startUI() {
     });
 }
 
-// ---- Auto-init seguro: roda agora se o DOM já estiver pronto, senão espera o evento
+// ---- Auto-init seguro
 if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", startUI, { once: true });
 } else {
