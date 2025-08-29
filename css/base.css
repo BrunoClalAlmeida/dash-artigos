@@ -35,6 +35,8 @@
   /* badge do índice do tema + gap do cabeçalho */
   --tema-badge: 32px;
   --tema-gap: .6rem;
+  /* ajuste fino para alinhar o cabeçalho "Tema" com o texto (não o badge) */
+  --tema-align-fix: 10px;
 
   /* imagem de fundo (caminho relativo a partir de /css) */
   --bg-url: url('../img/bg-user.jpg');
@@ -209,10 +211,10 @@ textarea {
   text-shadow: 0 0 6px rgba(56, 189, 248, .25);
 }
 
-/* alinhar cabeçalho Tema */
+/* Cabeçalho "Tema" alinhado ao texto do registro (após badge) */
 #campaignTable thead th:nth-child(1) {
   text-align: left;
-  padding-left: calc(1.5rem + var(--tema-badge) + var(--tema-gap));
+  padding-left: calc(1.5rem + var(--tema-badge) + var(--tema-gap) - var(--tema-align-fix));
 }
 
 .table-section tbody td {
@@ -223,12 +225,13 @@ textarea {
   word-break: keep-all;
 }
 
-/* célula do Tema com badge + texto */
+/* célula do Tema com badge + texto (texto NÃO corta) */
 .tema-cell {
   display: grid;
   grid-template-columns: var(--tema-badge) 1fr;
   column-gap: var(--tema-gap);
   align-items: center;
+  min-height: 44px;
 }
 
 #campaignTable .tema-index {
@@ -248,9 +251,12 @@ textarea {
   text-shadow: 0 0 6px rgba(56, 189, 248, .38);
 }
 
+/* primeira coluna (Tema) — texto inteiro e à esquerda */
 #campaignTable tbody td:nth-child(1) {
   white-space: normal;
+  /* várias linhas quando precisar */
   overflow-wrap: break-word;
+  /* evita estouro */
   max-width: 480px;
   text-align: left;
 }
@@ -267,6 +273,9 @@ textarea {
   background-clip: text;
   color: transparent;
   text-shadow: 0 0 6px rgba(56, 189, 248, .35), 0 0 20px rgba(14, 165, 233, .22);
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 /* espaçamentos/ações */
@@ -333,10 +342,212 @@ textarea {
   margin-top: 0;
 }
 
-/* ==== NOVO: clamp de 2 linhas para tema longo ==== */
-.tema-ellipsis {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+/* ========================= */
+/* ===== MOBILE (≤640px) ====*/
+/* ========================= */
+@media (max-width: 640px) {
+  .neon-text {
+    font-size: clamp(26px, 9vw, 34px) !important;
+    line-height: 1.12 !important;
+    letter-spacing: .02em !important;
+    text-align: center !important;
+  }
+
+  .page-wrap .max-w-6xl>header {
+    margin-top: 6px !important;
+    margin-bottom: 10px !important;
+  }
+
+  .form-section.card,
+  .table-section.card {
+    padding: 14px !important;
+    border-radius: 14px !important;
+    box-shadow: 0 0 0 1px rgba(56, 189, 248, .35) inset, 0 6px 18px rgba(0, 0, 0, .35) !important;
+  }
+
+  .form-section label {
+    font-size: .92rem !important;
+    text-align: left !important;
+    margin-bottom: .35rem !important;
+  }
+
+  .dark-input {
+    height: 44px !important;
+    font-size: 1rem !important;
+    padding: .55rem .75rem !important;
+  }
+
+  .form-section .neon-btn.neon-save {
+    width: 100% !important;
+    height: 44px !important;
+    font-size: 1rem !important;
+  }
+
+  #syncNowBtn {
+    top: 10px !important;
+    right: 12px !important;
+    padding: 6px 12px !important;
+    height: 38px !important;
+    min-width: 78px !important;
+    border-radius: 12px !important;
+    font-size: .95rem !important;
+    box-shadow: 0 0 10px rgba(56, 189, 248, .45), inset 0 0 10px rgba(14, 165, 233, .22) !important;
+  }
+
+  .conn-btn {
+    top: 10px !important;
+    left: 12px !important;
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 12px !important;
+    box-shadow: 0 0 10px rgba(56, 189, 248, .45), inset 0 0 10px rgba(14, 165, 233, .22) !important;
+  }
+
+  .conn-btn svg {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  /* tabela em cards */
+  .table-section thead {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  #campaignTable,
+  #campaignTable thead,
+  #campaignTable tbody,
+  #campaignTable th,
+  #campaignTable td,
+  #campaignTable tr {
+    display: block;
+    width: 100%;
+  }
+
+  #campaignTable tbody tr {
+    background: rgba(6, 14, 26, .55);
+    border: 1px solid rgba(56, 189, 248, .35);
+    border-radius: 14px;
+    box-shadow: 0 0 14px rgba(14, 165, 233, .16);
+    margin: 12px 0;
+    padding: 10px 10px;
+  }
+
+  #campaignTable tbody td {
+    border: none !important;
+    padding: 10px 10px 10px 118px !important;
+    position: relative;
+    text-align: left !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+  }
+
+  #campaignTable tbody td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 10px;
+    top: 10px;
+    width: 100px;
+    font-family: var(--font-title);
+    font-weight: 700;
+    letter-spacing: .04em;
+    color: var(--text-soft-2);
+    text-shadow: 0 0 6px rgba(56, 189, 248, .25);
+  }
+
+  #campaignTable tbody td[data-label="Tema"] {
+    padding-top: 14px !important;
+    padding-bottom: 14px !important;
+  }
+
+  #campaignTable tbody td[data-label="Tema"] .tema-cell {
+    grid-template-columns: 28px 1fr !important;
+  }
+
+  :root {
+    --tema-badge: 28px;
+    --tema-gap: .5rem;
+  }
+
+  .tema-text {
+    font-size: 1rem !important;
+    letter-spacing: .04em !important;
+    white-space: normal !important;
+    overflow-wrap: break-word !important;
+  }
+
+  .table-section tbody td .chip,
+  .table-section tbody td .chip--pill,
+  .table-section tbody td .chip--hollow {
+    display: inline-block !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    height: auto !important;
+    line-height: 1.2 !important;
+    padding: 8px 12px !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    hyphens: auto;
+    text-align: center;
+    font-size: .9rem !important;
+    letter-spacing: .04em !important;
+  }
+
+  .actions {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+    justify-items: stretch !important;
+  }
+
+  .actions .neon-btn {
+    width: 100% !important;
+    height: 42px !important;
+    min-width: 0 !important;
+  }
+
+  .table-section .overflow-x-auto {
+    overflow: visible !important;
+    max-height: none !important;
+    padding-inline: 0 !important;
+  }
+}
+
+/* ===== AJUSTES EXTRA PEQUENOS (≤480px) ===== */
+@media (max-width: 480px) {
+  .swal2-container {
+    padding: 12px !important;
+  }
+
+  .swal2-popup.dark-modal {
+    width: 94vw !important;
+    max-width: 94vw !important;
+    padding: 18px 14px 16px !important;
+    border-radius: 16px !important;
+  }
+
+  .dark-modal .pwd-wrap {
+    width: 100% !important;
+    margin: 8px auto 6px !important;
+  }
+
+  .dark-modal .pwd-input.swal2-input {
+    height: 52px !important;
+    padding: 0 48px 0 14px !important;
+    font-size: 1rem !important;
+  }
+
+  .dark-modal .pwd-eye-btn {
+    right: 6px !important;
+    width: 38px !important;
+    height: 52px !important;
+  }
+
+  .dark-modal .pwd-eye-btn svg {
+    width: 20px !important;
+    height: 20px !important;
+  }
 }
