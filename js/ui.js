@@ -1,4 +1,3 @@
-// js/ui.js
 "use strict";
 
 import {
@@ -13,15 +12,13 @@ import {
 } from "./core.js";
 
 /**
- * Dash Artigos — UI com categorias dinâmicas + remover em todas as opções
- * - Servidor como verdade (merge remoto autoritativo)
- * - Sync entre dispositivos (polling 5s + refresh pós-ação)
- * - Outbox com backoff e keepalive
- * - Exclusão de campanha: confirmação simples (sem senha)
- * - Dropdown custom para inputs com list (categoria) com criar/remover
+ * UI com:
+ * - Dropdown custom (X em TODAS as categorias, inclusive padrão)
+ * - Esconde padrões removidas via lista local "removedDefaultCategories"
+ * - SweetAlert com botões: Sim (vermelho) / Não (azul)
  */
 
-let render; // definido após init()
+let render;
 
 function startUI() {
     const form = document.getElementById("campaignForm");
@@ -33,123 +30,109 @@ function startUI() {
     const categoriaInput = document.getElementById("categoria");
     const categoriaDL = document.getElementById("lista-categorias");
 
-    // =========================
-    // Categorias dinâmicas
-    // =========================
-
-    // pega as categorias que já estão no HTML
-    const defaultCats = Array.from(categoriaDL?.options || [])
+    /* ===== Categorias ===== */
+    const defaultCatsAll = Array.from(categoriaDL?.options || [])
         .map(o => o.value || o.label || "")
         .filter(Boolean);
 
-    // carrega extras do localStorage
+    // removidos de padrão ficam aqui
+    const loadRemovedDefaults = () =>
+        JSON.parse(localStorage.getItem("removedDefaultCategories") || "[]");
+    const saveRemovedDefaults = (arr) =>
+        localStorage.setItem("removedDefaultCategories", JSON.stringify(arr));
+
+    let removedDefaults = loadRemovedDefaults();
+
+    // extras (as que você cria)
     let categoriasExtras = getCategories();
 
-    // utils
-    const norm = s => String(s || "").trim().toLowerCase();
+    const norm = s => String(s || "").trim();
+    const normCI = s => norm(s).toLowerCase();
     const uniqCI = arr => {
         const seen = new Set();
         return arr.filter(v => {
-            const k = norm(v);
+            const k = normCI(v);
             if (!k || seen.has(k)) return false;
             seen.add(k);
             return true;
         });
     };
-    const existsCI = (val, list) => list.some(v => norm(v) === norm(val));
+    const existsCI = (val, list) => list.some(v => normCI(v) === normCI(val));
 
-    // renderiza o datalist (padrão + extras) ordenado
+    function getDefaultCatsVisible() {
+        // filtra os padrões removidos
+        return defaultCatsAll.filter(c => !removedDefaults.some(r => normCI(r) === normCI(c)));
+    }
+
     function renderCategorias() {
-        const all = uniqCI([...defaultCats, ...categoriasExtras])
+        const defaultsVisiveis = getDefaultCatsVisible();
+        const all = uniqCI([...defaultsVisiveis, ...categoriasExtras])
             .sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
         categoriaDL.innerHTML = "";
         for (const cat of all) {
-            const opt = document.createElement("option");
-            opt.value = cat;
-            categoriaDL.appendChild(opt);
+            const o = document.createElement("option");
+            o.value = cat;
+            categoriaDL.appendChild(o);
         }
     }
     renderCategorias();
 
-    // criar categoria (se não existir)
-    async function tentarCriarCategoria(valor) {
-        if (!valor) return;
-        const allNow = uniqCI([...defaultCats, ...categoriasExtras]);
-        if (existsCI(valor, allNow)) return;
-
-        const res = await Swal.fire({
+    async function perguntarCriarCategoria(valor) {
+        const r = await Swal.fire({
+            customClass: { popup: "dark-modal" },
+            background: "#0f172a", color: "#e2e8f0",
+            icon: "question",
             title: "Criar nova categoria?",
             text: `A categoria "${valor}" não existe. Deseja criar?`,
-            icon: "question",
             showCancelButton: true,
             confirmButtonText: "Sim",
-            cancelButtonText: "Não",
-            background: "#0f172a",
-            color: "#e2e8f0"
+            cancelButtonText: "Não"
         });
-        if (!res.isConfirmed) return;
+        return r.isConfirmed;
+    }
 
-        if (!existsCI(valor, categoriasExtras)) {
+    async function tentarCriarCategoria(valor) {
+        if (!valor) return;
+        const todos = uniqCI([...getDefaultCatsVisible(), ...categoriasExtras]);
+        if (existsCI(valor, todos)) return;
+        if (await perguntarCriarCategoria(valor)) {
             categoriasExtras.push(valor.trim());
             saveCategories(categoriasExtras);
+            renderCategorias();
+            Swal.fire({
+                toast: true, position: "bottom-end", timer: 1400, showConfirmButton: false,
+                icon: "success", title: "Categoria criada!", background: "#0f172a", color: "#e2e8f0"
+            });
         }
-        renderCategorias();
-
-        Swal.fire({
-            toast: true, position: "bottom-end", timer: 1400, showConfirmButton: false,
-            icon: "success", title: "Categoria criada!",
-            background: "#0f172a", color: "#e2e8f0"
-        });
     }
 
-    // blur + submit (fallback para criar)
     categoriaInput.addEventListener("blur", () => {
-        const val = categoriaInput.value.trim();
-        if (val) tentarCriarCategoria(val);
+        const v = categoriaInput.value.trim();
+        if (v) tentarCriarCategoria(v);
     });
-    const formEl = document.getElementById("campaignForm");
-    formEl.addEventListener("submit", async () => {
-        const val = categoriaInput.value.trim();
-        if (val) await tentarCriarCategoria(val);
+    document.getElementById("campaignForm").addEventListener("submit", async () => {
+        const v = categoriaInput.value.trim();
+        if (v) await tentarCriarCategoria(v);
     }, { capture: true });
 
-    // helper link
-    function linkBtn(label, url) {
-        const u = sanitizeURL(url); if (!u) return "";
-        return `
-      <a href="${u}" class="link-btn" target="_blank" rel="noopener noreferrer"
-         aria-label="${esc(label)}" title="Abrir ${esc(label)}">
-        <span>${esc(label)}</span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M7 17L17 7"></path><path d="M9 7h8v8"></path>
-        </svg>
-      </a>`;
-    }
-
-    /* =========================
-       Render da tabela
-    ========================= */
-    render = function render() {
+    /* ===== Tabela ===== */
+    render = function () {
         tbody.innerHTML = "";
         campanhas.forEach((c, i) => {
-            const idxStr = String(i + 1);
-            const isActive = (c.status || "ATIVO") === "ATIVO";
-
             const tr = document.createElement("tr");
             tr.dataset.id = c.id;
             tr.setAttribute("data-status", c.status || "ATIVO");
 
-            const editDisabledAttr = isActive ? "" : "disabled";
-            const editTitle = isActive ? "Editar registro" : "Edição bloqueada (linha INATIVO)";
+            const isActive = (c.status || "ATIVO") === "ATIVO";
             const statusCls = isActive ? "neon-del" : "neon-ok";
             const statusText = isActive ? "Desativar" : "Ativar";
-            const statusAria = String(isActive);
-            const statusTitle = isActive ? "Desativar registro" : "Ativar registro";
+            const editDisabledAttr = isActive ? "" : "disabled";
+            const editTitle = isActive ? "Editar registro" : "Edição bloqueada (linha INATIVO)";
 
             tr.innerHTML = `
         <td class="px-6 py-4" data-label="Tema">
           <div class="tema-cell" data-id="${c.id}">
-            <span class="tema-index">${idxStr}</span>
+            <span class="tema-index">${String(i + 1)}</span>
             <span class="tema-text tema-ellipsis">${esc(c.tema)}</span>
           </div>
         </td>
@@ -162,19 +145,9 @@ function startUI() {
         <td class="px-6 py-4" data-label="Plataforma"><span class="chip chip--pill">${esc(c.plataforma || "")}</span></td>
         <td class="px-6 py-4" data-label="Ações">
           <div class="actions">
-            <button class="neon-btn neon-edit px-3 btn-edit"
-                    data-index="${i}"
-                    ${editDisabledAttr}
-                    title="${editTitle}">Editar</button>
-
-            <button class="neon-btn ${statusCls} px-3 btn-status"
-                    data-index="${i}"
-                    aria-pressed="${statusAria}"
-                    title="${statusTitle}">${statusText}</button>
-
-            <button class="neon-btn neon-trash px-3 btn-delete"
-                    data-index="${i}"
-                    title="Excluir registro">Excluir</button>
+            <button class="neon-btn neon-edit px-3 btn-edit" data-index="${i}" ${editDisabledAttr} title="${editTitle}">Editar</button>
+            <button class="neon-btn ${statusCls} px-3 btn-status" data-index="${i}" title="${statusText}">${statusText}</button>
+            <button class="neon-btn neon-trash px-3 btn-delete" data-index="${i}" title="Excluir registro">Excluir</button>
           </div>
         </td>
       `;
@@ -182,21 +155,29 @@ function startUI() {
         });
     };
 
-    /* =========================
-       Ações na tabela
-    ========================= */
+    function linkBtn(label, url) {
+        const u = sanitizeURL(url); if (!u) return "";
+        return `
+      <a href="${u}" class="link-btn" target="_blank" rel="noopener noreferrer" aria-label="${esc(label)}" title="Abrir ${esc(label)}">
+        <span>${esc(label)}</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M7 17L17 7"></path><path d="M9 7h8v8"></path>
+        </svg>
+      </a>`;
+    }
+
+    /* ===== Ações Tabela ===== */
     tbody.addEventListener("click", async (e) => {
         const btnEdit = e.target.closest(".btn-edit");
         if (btnEdit) {
             if (btnEdit.hasAttribute("disabled")) {
                 Swal.fire({
-                    toast: true, position: "bottom-end", timer: 1800, showConfirmButton: false, icon: "info",
+                    toast: true, position: "bottom-end", timer: 1600, showConfirmButton: false, icon: "info",
                     title: "Edição bloqueada — linha INATIVA", background: "#0f172a", color: "#e2e8f0"
                 });
                 return;
             }
-            const i = Number(btnEdit.dataset.index);
-            const c = campanhas[i]; if (!c) return;
+            const i = Number(btnEdit.dataset.index), c = campanhas[i]; if (!c) return;
             document.getElementById("editIndex").value = i;
             form.tema.value = c.tema;
             form.link_artigo.value = c.link_artigo;
@@ -207,7 +188,7 @@ function startUI() {
             idiomaInput.value = c.idioma;
             categoriaInput.value = c.categoria || "";
             Swal.fire({
-                toast: true, position: "bottom-end", timer: 1400, showConfirmButton: false, icon: "info",
+                toast: true, position: "bottom-end", timer: 1200, showConfirmButton: false, icon: "info",
                 title: "Editando registro…", background: "#0f172a", color: "#e2e8f0"
             });
             form.tema.focus();
@@ -216,22 +197,15 @@ function startUI() {
 
         const btnStatus = e.target.closest(".btn-status");
         if (btnStatus) {
-            const i = Number(btnStatus.dataset.index);
-            const c = campanhas[i]; if (!c) return;
+            const i = Number(btnStatus.dataset.index), c = campanhas[i]; if (!c) return;
             const newStatus = (c.status === "ATIVO") ? "INATIVO" : "ATIVO";
-            const updated = { ...c, status: newStatus };
-            campanhas[i] = updated; saveData(); render();
-
-            const rowBtn = tbody.querySelector(`tr[data-id="${c.id}"] .btn-status`);
-            if (rowBtn) rowBtn.setAttribute("aria-pressed", String(newStatus === "ATIVO"));
-
+            campanhas[i] = { ...c, status: newStatus }; saveData(); render();
             try {
                 await sendToSheets({ id: c.id, status: newStatus }, "update");
                 await refreshFromServer(render);
                 Swal.fire({
                     toast: true, position: "bottom-end", timer: 1800, showConfirmButton: false,
-                    icon: (newStatus === "ATIVO" ? "success" : "info"), title: `Status: ${newStatus}`,
-                    background: "#0f172a", color: "#e2e8f0"
+                    icon: (newStatus === "ATIVO" ? "success" : "info"), title: `Status: ${newStatus}`, background: "#0f172a", color: "#e2e8f0"
                 });
             } catch {
                 enqueue({ id: c.id, status: newStatus }, "update");
@@ -245,58 +219,49 @@ function startUI() {
 
         const btnDelete = e.target.closest(".btn-delete");
         if (btnDelete) {
-            const index = Number(btnDelete.dataset.index);
-            const c = campanhas[index]; if (!c) return;
-
+            const i = Number(btnDelete.dataset.index), c = campanhas[i]; if (!c) return;
             const ask = await Swal.fire({
-                customClass: { popup: "dark-modal", confirmButton: "neon-btn neon-danger", cancelButton: "neon-btn neon-save" },
+                customClass: { popup: "dark-modal" },
                 background: "#0f172a", color: "#e2e8f0",
-                icon: "warning", title: "Excluir este registro?",
+                icon: "warning",
+                title: "Excluir este registro?",
                 html: `Tem certeza que deseja <b>excluir definitivamente</b> este cadastro?<br><br>
-               <span class="neon-label">Tema:</span> <b>${esc(c.tema)}</b>`,
-                showCancelButton: true, confirmButtonText: "Sim, excluir", cancelButtonText: "Cancelar", reverseButtons: true
+             <span class="neon-label">Tema:</span> <b>${esc(c.tema)}</b>`,
+                showCancelButton: true,
+                confirmButtonText: "Sim, excluir",
+                cancelButtonText: "Cancelar",
+                reverseButtons: true
             });
             if (!ask.isConfirmed) return;
 
-            campanhas.splice(index, 1); saveData(); render();
-            const editIdxEl = document.getElementById("editIndex");
-            if (editIdxEl && Number(editIdxEl.value) === index) { form.reset(); editIdxEl.value = -1; }
-
+            campanhas.splice(i, 1); saveData(); render();
+            document.getElementById("editIndex").value = -1;
             try {
                 await sendToSheets({ id: c.id }, "delete");
                 await refreshFromServer(render);
                 Swal.fire({
-                    toast: true, position: "bottom-end", timer: 1800, showConfirmButton: false,
-                    icon: "success", title: "Excluído da planilha", background: "#0f172a", color: "#e2e8f0"
+                    toast: true, position: "bottom-end", timer: 1600, showConfirmButton: false, icon: "success",
+                    title: "Excluído da planilha", background: "#0f172a", color: "#e2e8f0"
                 });
             } catch {
                 enqueue({ id: c.id }, "delete");
                 Swal.fire({
-                    toast: true, position: "bottom-end", timer: 2600, showConfirmButton: false,
-                    icon: "warning", title: "Sem conexão — exclusão em fila", background: "#0f172a", color: "#e2e8f0"
+                    toast: true, position: "bottom-end", timer: 2200, showConfirmButton: false, icon: "warning",
+                    title: "Sem conexão — exclusão em fila", background: "#0f172a", color: "#e2e8f0"
                 });
             }
         }
     });
 
-    /* =========================
-       Submit do formulário (Salvar)
-    ========================= */
+    /* ===== Salvar ===== */
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
-
         const submitBtn = form.querySelector('button[type="submit"]');
-        const originalSubmitTxt = submitBtn ? submitBtn.textContent : "";
+        const original = submitBtn?.textContent || "";
+        if (submitBtn) { submitBtn.textContent = "Salvando..."; submitBtn.disabled = true; submitBtn.setAttribute("aria-busy", "true"); }
 
-        if (submitBtn) {
-            submitBtn.textContent = "Salvando...";
-            submitBtn.setAttribute("aria-busy", "true");
-            submitBtn.disabled = true;
-        }
-
-        const idxRaw = document.getElementById("editIndex").value.trim();
-        const idx = Number.isNaN(parseInt(idxRaw, 10)) ? -1 : parseInt(idxRaw, 10);
-        const existing = (idx >= 0) ? campanhas[idx] : null;
+        const idx = parseInt(document.getElementById("editIndex").value || "-1", 10);
+        const existing = idx >= 0 ? campanhas[idx] : null;
 
         const safeArtigo = sanitizeURL(form.link_artigo.value.trim());
         const safeDrive = sanitizeURL(form.link_drive.value.trim());
@@ -323,25 +288,17 @@ function startUI() {
             await sendToSheets(data, op);
             await refreshFromServer(render);
             Swal.fire({
-                customClass: { popup: "dark-modal", confirmButton: "neon-btn neon-save" },
-                background: "#0f172a", color: "#e2e8f0",
-                icon: "success", title: existing ? "Atualizado!" : "Enviado!",
-                text: "Sincronizado com o Google Sheets.", confirmButtonText: "OK"
+                customClass: { popup: "dark-modal" }, background: "#0f172a", color: "#e2e8f0",
+                icon: "success", title: existing ? "Atualizado!" : "Enviado!", text: "Sincronizado com o Google Sheets.", confirmButtonText: "OK"
             });
         } catch (err) {
             enqueue(data, op);
             Swal.fire({
-                customClass: { popup: "dark-modal", confirmButton: "neon-btn neon-save" },
-                background: "#0f172a", color: "#e2e8f0",
-                icon: "warning", title: "Sem conexão com o Sheets",
-                text: `Registro salvo localmente e colocado na fila. Detalhe: ${err.message}`, confirmButtonText: "OK"
+                customClass: { popup: "dark-modal" }, background: "#0f172a", color: "#e2e8f0",
+                icon: "warning", title: "Sem conexão com o Sheets", text: `Registro salvo localmente e colocado na fila. Detalhe: ${err.message}`, confirmButtonText: "OK"
             });
         } finally {
-            if (submitBtn) {
-                submitBtn.textContent = originalSubmitTxt || "Salvar Campanha";
-                submitBtn.removeAttribute("aria-busy");
-                submitBtn.disabled = false;
-            }
+            if (submitBtn) { submitBtn.textContent = original || "Salvar Campanha"; submitBtn.disabled = false; submitBtn.removeAttribute("aria-busy"); }
         }
 
         form.reset(); document.getElementById("editIndex").value = -1;
@@ -351,88 +308,70 @@ function startUI() {
         if (sent > 0) await refreshFromServer(render);
     });
 
-    /* =========================
-       Dropdown custom (com Criar + Remover)
-    ========================= */
+    /* ===== Dropdown custom (categoria) ===== */
     const activeDD = { el: null, input: null, listId: null };
-    let skipNextBlurClose = false;
     let hoveringDD = false;
-
-    const cssRoot = () => getComputedStyle(document.documentElement);
-    const numVar = (name, fallback) => {
-        const raw = cssRoot().getPropertyValue(name).trim();
-        const n = parseFloat(raw || ""); return Number.isFinite(n) ? n : fallback;
-    };
-    const ddOffsetY = () => numVar("--dd-offset-y", 6);
+    const ddOffsetY = 6;
 
     function positionDD(dd, input) {
-        const rect = input.getBoundingClientRect();
-        dd.style.minWidth = rect.width + "px";
-        dd.style.left = (rect.left + window.scrollX) + "px";
-        dd.style.top = (rect.bottom + window.scrollY + ddOffsetY()) + "px";
+        const r = input.getBoundingClientRect();
+        dd.style.minWidth = r.width + "px";
+        dd.style.left = (r.left + window.scrollX) + "px";
+        dd.style.top = (r.bottom + window.scrollY + ddOffsetY) + "px";
     }
 
-    // renderiza a lista da dropdown com botões de remover e opção "Criar"
     function renderMiniList(ul, dl, term, anchorInput) {
-        const t = String(term || "").trim();
-        const tLower = t.toLowerCase();
-
+        const t = String(term || "").trim(), tLower = t.toLowerCase();
         ul.innerHTML = "";
 
-        // opções (todas) com botão X
-        Array.from(dl.options).forEach(opt => {
+        const options = Array.from(dl.options);
+        options.forEach(opt => {
             const txt = opt.value || opt.label || "";
             if (!t || txt.toLowerCase().includes(tLower)) {
                 const li = document.createElement("li");
-                const row = document.createElement("div");
-                row.className = "dd-row";
+                const row = document.createElement("div"); row.className = "dd-row";
 
-                const label = document.createElement("span");
-                label.className = "dd-label";
-                label.textContent = txt;
+                const label = document.createElement("span"); label.className = "dd-label"; label.textContent = txt;
 
                 const btn = document.createElement("button");
-                btn.className = "dd-remove";
-                btn.type = "button";
-                btn.setAttribute("aria-label", `Remover categoria ${txt}`);
-                btn.title = "Remover";
+                btn.className = "dd-remove"; btn.type = "button"; btn.title = "Remover"; btn.setAttribute("aria-label", `Remover categoria ${txt}`);
+                btn.addEventListener("click", async (ev) => {
+                    ev.stopPropagation();
+                    // fecha a dropdown antes do modal pra evitar sobreposição visual
+                    closeDD();
 
-                // habilita remover apenas para extras; padrões ficam desabilitados
-                const isDefault = existsCI(txt, defaultCats);
-                if (isDefault) {
-                    btn.disabled = true;
-                    btn.title = "Categoria padrão (não removível)";
-                } else {
-                    btn.addEventListener("click", async (ev) => {
-                        ev.stopPropagation();
-                        const ask = await Swal.fire({
-                            title: "Remover categoria?",
-                            text: `Deseja remover "${txt}" das opções? (não afeta registros já salvos)`,
-                            icon: "warning",
-                            showCancelButton: true,
-                            confirmButtonText: "Remover",
-                            cancelButtonText: "Cancelar",
-                            background: "#0f172a",
-                            color: "#e2e8f0"
-                        });
-                        if (!ask.isConfirmed) return;
-
-                        categoriasExtras = categoriasExtras.filter(c => norm(c) !== norm(txt));
-                        saveCategories(categoriasExtras);
-                        renderCategorias();
-                        renderMiniList(ul, dl, anchorInput.value, anchorInput);
-
-                        Swal.fire({
-                            toast: true, position: "bottom-end", timer: 1400, showConfirmButton: false,
-                            icon: "success", title: "Categoria removida",
-                            background: "#0f172a", color: "#e2e8f0"
-                        });
+                    const ask = await Swal.fire({
+                        customClass: { popup: "dark-modal" },
+                        background: "#0f172a",
+                        color: "#e2e8f0",
+                        icon: "warning",
+                        title: "Remover categoria?",
+                        text: `Deseja remover "${txt}" das opções? (não afeta registros já salvos)`,
+                        showCancelButton: true,
+                        confirmButtonText: "Sim",
+                        cancelButtonText: "Não",
+                        reverseButtons: true
                     });
-                }
+                    if (!ask.isConfirmed) return;
 
-                // clique no texto seleciona a categoria
+                    // se é padrão visível -> marca como removido
+                    const isDefault = defaultCatsAll.some(c => normCI(c) === normCI(txt));
+                    if (isDefault) {
+                        removedDefaults = uniqCI([...removedDefaults, txt]);
+                        saveRemovedDefaults(removedDefaults);
+                    } else {
+                        categoriasExtras = categoriasExtras.filter(c => normCI(c) !== normCI(txt));
+                        saveCategories(categoriasExtras);
+                    }
+                    renderCategorias();
+                    renderMiniList(ul, dl, anchorInput.value, anchorInput);
+                    Swal.fire({
+                        toast: true, position: "bottom-end", timer: 1200, showConfirmButton: false,
+                        icon: "success", title: "Categoria removida", background: "#0f172a", color: "#e2e8f0"
+                    });
+                });
+
                 li.addEventListener("mousedown", (ev) => {
-                    // se clicou no botão, já tratado acima
                     if (ev.target.closest(".dd-remove")) return;
                     ev.preventDefault();
                     anchorInput.value = txt;
@@ -440,26 +379,22 @@ function startUI() {
                     anchorInput.dispatchEvent(new Event("change", { bubbles: true }));
                 });
 
-                row.appendChild(label);
-                row.appendChild(btn);
-                li.appendChild(row);
-                ul.appendChild(li);
+                row.appendChild(label); row.appendChild(btn); li.appendChild(row); ul.appendChild(li);
             }
         });
 
-        // criar se digitou e não existe
-        const allNow = uniqCI([...defaultCats, ...categoriasExtras]);
-        const deveOferecerCriar = !!t && !existsCI(t, allNow);
-        if (deveOferecerCriar) {
+        const allNow = uniqCI([...getDefaultCatsVisible(), ...categoriasExtras]);
+        if (t && !existsCI(t, allNow)) {
             const liAdd = document.createElement("li");
             liAdd.className = "dd-create";
             liAdd.textContent = `➕ Criar categoria “${t}”`;
             liAdd.addEventListener("mousedown", async (ev) => {
                 ev.preventDefault();
-                await tentarCriarCategoria(t);
+                const ok = await perguntarCriarCategoria(t);
+                if (!ok) return;
+                categoriasExtras.push(t.trim()); saveCategories(categoriasExtras);
                 renderCategorias();
-                anchorInput.value = t;
-                closeDD();
+                anchorInput.value = t; closeDD();
                 anchorInput.dispatchEvent(new Event("change", { bubbles: true }));
             });
             ul.appendChild(liAdd);
@@ -474,11 +409,8 @@ function startUI() {
         dd.addEventListener("mouseleave", () => { hoveringDD = false; });
 
         const ul = document.createElement("ul");
-        dd.appendChild(ul);
-        document.body.appendChild(dd);
-
+        dd.appendChild(ul); document.body.appendChild(dd);
         renderMiniList(ul, dl, "", anchorInput);
-
         requestAnimationFrame(() => dd.classList.add("open"));
         return dd;
     }
@@ -490,7 +422,6 @@ function startUI() {
             activeDD.input = null; activeDD.listId = null; hoveringDD = false;
         }
     }
-
     function openDD(input) {
         const listId = input.getAttribute("list"); if (!listId) return;
         input.setAttribute("data-real-list", listId); input.setAttribute("list", "");
@@ -512,56 +443,43 @@ function startUI() {
     window.addEventListener("resize", () => { if (activeDD.el && activeDD.input) positionDD(activeDD.el, activeDD.input); });
 
     document.querySelectorAll("input[list]").forEach(inp => {
-        inp.addEventListener("pointerdown", () => { if (!activeDD.el) openDD(inp); skipNextBlurClose = true; });
+        let skipBlur = false;
+        inp.addEventListener("pointerdown", () => { if (!activeDD.el) openDD(inp); skipBlur = true; });
         inp.addEventListener("focus", () => { if (!activeDD.el) openDD(inp); });
         inp.addEventListener("click", () => { if (!activeDD.el) openDD(inp); });
-
         inp.addEventListener("input", () => {
             if (!activeDD.el) return;
             const dl = document.getElementById(activeDD.listId);
             const ul = activeDD.el.querySelector("ul");
             renderMiniList(ul, dl, inp.value, inp);
         });
-
         inp.addEventListener("blur", () => {
-            if (skipNextBlurClose) { skipNextBlurClose = false; return; }
+            if (skipBlur) { skipBlur = false; return; }
             setTimeout(closeDD, 120);
         });
     });
 
-    /* =========================
-       Tooltip
-    ========================= */
+    /* ===== Tooltip ===== */
     const tip = document.createElement("div"); tip.className = "tip-layer"; document.body.appendChild(tip);
     let tipTarget = null;
     function positionTip(el) {
-        const pad = 10, off = 10;
-        const r = el.getBoundingClientRect(); const centerX = r.left + r.width / 2;
-        const tw = tip.offsetWidth, th = tip.offsetHeight;
-        let pos = "top"; let yTop = r.top - off, yBottom = r.bottom + off, y;
-        if (yTop - th < pad) {
-            if (yBottom + th <= window.innerHeight - pad) { pos = "bottom"; y = yBottom; }
-            else { pos = "top"; y = Math.max(pad + th, yTop); }
-        } else { pos = "top"; y = yTop; }
+        const pad = 10, off = 10, r = el.getBoundingClientRect(); const centerX = r.left + r.width / 2;
+        const tw = tip.offsetWidth, th = tip.offsetHeight; let pos = "top"; let yTop = r.top - off, yBottom = r.bottom + off, y;
+        if (yTop - th < pad) { if (yBottom + th <= window.innerHeight - pad) { pos = "bottom"; y = yBottom; } else { y = Math.max(pad + th, yTop); } }
+        else { y = yTop; }
         tip.dataset.pos = pos; tip.style.top = `${y}px`;
         const xMin = pad + tw / 2, xMax = window.innerWidth - pad - tw / 2;
         const x = Math.min(Math.max(centerX, xMin), xMax); const shift = x - centerX;
         tip.style.left = `${x}px`; tip.style.setProperty("--arrow-shift", `${-shift}px`);
     }
-    function showTipFor(el, text) {
-        if (!text) return; tipTarget = el; tip.innerHTML = text.replace(/\n/g, "<br>");
-        positionTip(el); tip.setAttribute("data-show", "true");
-    }
+    function showTipFor(el, text) { if (!text) return; tipTarget = el; tip.innerHTML = text.replace(/\n/g, "<br>"); positionTip(el); tip.setAttribute("data-show", "true"); }
     function hideTip() { tipTarget = null; tip.removeAttribute("data-show"); }
     function enterHandler(ev) {
         const el = ev.target.closest("[data-tip],[title]"); if (!el) return;
         if (el.hasAttribute("title")) { const t = el.getAttribute("title"); if (t) el.setAttribute("data-tip", t); el.removeAttribute("title"); }
         const txt = el.getAttribute("data-tip"); if (!txt) return; showTipFor(el, txt);
     }
-    function leaveHandler(ev) {
-        if (!tipTarget) return;
-        if (ev.target === tipTarget || (ev.target.contains && ev.target.contains(tipTarget))) hideTip();
-    }
+    function leaveHandler(ev) { if (!tipTarget) return; if (ev.target === tipTarget || (ev.target.contains && ev.target.contains(tipTarget))) hideTip(); }
     document.addEventListener("mouseover", enterHandler, true);
     document.addEventListener("focusin", enterHandler, true);
     document.addEventListener("mouseout", leaveHandler, true);
@@ -569,9 +487,7 @@ function startUI() {
     window.addEventListener("scroll", () => { if (tipTarget) positionTip(tipTarget); }, true);
     window.addEventListener("resize", () => { if (tipTarget) positionTip(tipTarget); });
 
-    /* =========================
-       Conexão (ping)
-    ========================= */
+    /* ===== Conexão & Sync (mesmo de antes) ===== */
     function setConnBtn(state, tipText) {
         if (!connBtn) return;
         connBtn.classList.remove("status-fast", "status-med", "status-slow", "status-off");
@@ -580,117 +496,57 @@ function startUI() {
         connBtn.classList.remove("loading");
     }
     async function pingSheets(timeoutMs = 7000) {
-        const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), timeoutMs);
-        const start = performance.now();
+        const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), timeoutMs); const start = performance.now();
         try {
             const body = new URLSearchParams({ key: SHEETS_KEY, op: "ping", data: "{}" }).toString();
             const res = await fetch(WEB_APP_URL, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" }, body, signal: ctrl.signal });
-            const ms = Math.round(performance.now() - start); clearTimeout(t);
-            return { ok: true, status: res.status, ms };
+            const ms = Math.round(performance.now() - start); clearTimeout(t); return { ok: true, status: res.status, ms };
         } catch (err) { clearTimeout(t); return { ok: false, error: err?.name === "AbortError" ? "timeout" : (err?.message || "erro") }; }
     }
     const classify = (ms) => (ms < 350 ? "fast" : ms < 1000 ? "med" : "slow");
     async function runConnCheck() {
-        if (!connBtn) return;
-        connBtn.classList.add("loading");
-
-        if (!navigator.onLine) {
-            setConnBtn("status-off", "Sem conexão com a internet");
-            Swal.fire({ toast: true, position: "bottom-end", timer: 2500, showConfirmButton: false, icon: "error", title: "Offline", text: "Sem conexão com a internet.", background: "#0f172a", color: "#e2e8f0" });
-            return;
-        }
+        if (!connBtn) return; connBtn.classList.add("loading");
+        if (!navigator.onLine) { setConnBtn("status-off", "Sem conexão"); Swal.fire({ toast: true, position: "bottom-end", timer: 2500, showConfirmButton: false, icon: "error", title: "Offline", background: "#0f172a", color: "#e2e8f0" }); return; }
         const r = await pingSheets(7000);
-        if (!r.ok) {
-            setConnBtn("status-off", "Web App sem resposta");
-            Swal.fire({ toast: true, position: "bottom-end", timer: 2800, showConfirmButton: false, icon: "error", title: "Sem resposta do Web App", text: "Falha ao contatar o Apps Script.", background: "#0f172a", color: "#e2e8f0" });
-            return;
-        }
-        const speed = classify(r.ms);
-        const stateCls = speed === "fast" ? "status-fast" : (speed === "med" ? "status-med" : "status-slow");
-        const statusTxt = speed === "fast" ? "rápida" : (speed === "med" ? "média" : "lenta");
-        setConnBtn(stateCls, `Conexão ${statusTxt} · ${r.ms} ms`);
-        connBtn.setAttribute("aria-label", `Conexão ${statusTxt}, ${r.ms} milissegundos`);
-        Swal.fire({
-            toast: true, position: "bottom-end", timer: 3200, showConfirmButton: false,
-            icon: (speed === "fast" ? "success" : (speed === "med" ? "info" : "warning")), title: `Conexão ${statusTxt}`,
-            html: `<b>Latência:</b> ${r.ms} ms`, background: "#0f172a", color: "#e2e8f0"
-        });
+        if (!r.ok) { setConnBtn("status-off", "Web App sem resposta"); Swal.fire({ toast: true, position: "bottom-end", timer: 2800, showConfirmButton: false, icon: "error", title: "Sem resposta do Web App", background: "#0f172a", color: "#e2e8f0" }); return; }
+        const speed = classify(r.ms), cls = speed === "fast" ? "status-fast" : (speed === "med" ? "status-med" : "status-slow");
+        const txt = speed === "fast" ? "rápida" : (speed === "med" ? "média" : "lenta");
+        setConnBtn(cls, `Conexão ${txt} · ${r.ms} ms`);
+        Swal.fire({ toast: true, position: "bottom-end", timer: 3200, showConfirmButton: false, icon: (speed === "fast" ? "success" : (speed === "med" ? "info" : "warning")), title: `Conexão ${txt}`, html: `<b>Latência:</b> ${r.ms} ms`, background: "#0f172a", color: "#e2e8f0" });
     }
-    if (connBtn) {
-        connBtn.addEventListener("click", runConnCheck);
-        setTimeout(runConnCheck, 800);
-    }
+    if (connBtn) { connBtn.addEventListener("click", runConnCheck); setTimeout(runConnCheck, 800); }
 
-    /* =========================
-       Botão "Sync"
-    ========================= */
     if (syncBtn) {
-        const originalSyncTxt = syncBtn.textContent.trim() || "Sync";
+        const original = syncBtn.textContent.trim() || "Sync";
         syncBtn.addEventListener("click", async () => {
-            syncBtn.disabled = true;
-            syncBtn.textContent = "Sincronizando...";
+            syncBtn.disabled = true; syncBtn.textContent = "Sincronizando...";
             try {
                 const sent = await drainOutbox(true);
                 await refreshFromServer(render);
-                if (window.Swal) {
-                    window.Swal.fire({
-                        toast: true, position: "bottom-end", timer: 1800, showConfirmButton: false,
-                        icon: sent > 0 ? "success" : "info",
-                        title: sent > 0 ? `Enviadas ${sent} pendências` : "Sincronizado",
-                        background: "#0f172a", color: "#e2e8f0"
-                    });
-                }
+                Swal.fire({ toast: true, position: "bottom-end", timer: 1800, showConfirmButton: false, icon: sent > 0 ? "success" : "info", title: sent > 0 ? `Enviadas ${sent} pendências` : "Sincronizado", background: "#0f172a", color: "#e2e8f0" });
             } finally {
-                syncBtn.disabled = false;
-                syncBtn.textContent = originalSyncTxt;
+                syncBtn.disabled = false; syncBtn.textContent = original;
             }
         });
     }
 
-    /* =========================
-       Bootstrap + Polling + Triggers
-    ========================= */
     (async function bootstrapSync() {
-        try {
-            const sent = await drainOutbox(true);
-            if (sent > 0) await refreshFromServer(render);
-            await refreshFromServer(render);
-        } catch (err) {
-            console.warn("[sync] Falha no read/merge; usando somente local:", err?.message || err);
-            render();
-        }
+        try { const sent = await drainOutbox(true); if (sent > 0) await refreshFromServer(render); await refreshFromServer(render); }
+        catch { render(); }
         setInterval(async () => { await refreshFromServer(render); }, SERVER_REFRESH_MS);
     })();
 
     window.addEventListener("online", async () => {
-        const sent = await drainOutbox(true);
-        if (sent > 0) await refreshFromServer(render);
+        const sent = await drainOutbox(true); if (sent > 0) await refreshFromServer(render);
         await refreshFromServer(render);
     });
+    setInterval(async () => { const sent = await drainOutbox(false); if (sent > 0) await refreshFromServer(render); }, RETRY_INTERVAL_MS);
+    document.addEventListener("visibilitychange", async () => { if (document.visibilityState === "visible") await refreshFromServer(render); });
 
-    setInterval(async () => {
-        const sent = await drainOutbox(false);
-        if (sent > 0) await refreshFromServer(render);
-    }, RETRY_INTERVAL_MS);
-
-    document.addEventListener("visibilitychange", async () => {
-        if (document.visibilityState === "visible") {
-            await refreshFromServer(render);
-        }
-    });
-
-    /* =========================
-       Keepalive ao sair
-    ========================= */
     window.addEventListener("pagehide", flushOutboxKeepalive);
-    document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === "hidden") flushOutboxKeepalive();
-    });
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flushOutboxKeepalive(); });
 }
 
-// ---- Auto-init seguro
-if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", startUI, { once: true });
-} else {
-    startUI();
-}
+/* ==== auto-init ==== */
+if (document.readyState === "loading") { document.addEventListener("DOMContentLoaded", startUI, { once: true }); }
+else { startUI(); }

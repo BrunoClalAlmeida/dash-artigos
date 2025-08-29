@@ -57,7 +57,7 @@
     flex: none;
 }
 
-/* editar/status/excluir/ok/trash */
+/* ações rápidas */
 .neon-edit,
 .neon-del,
 .neon-ok,
@@ -101,17 +101,6 @@
     filter: brightness(1.07);
     border-color: rgba(56, 189, 248, .95);
     box-shadow: 0 0 18px rgba(56, 189, 248, .78), 0 0 32px rgba(14, 165, 233, .32), inset 0 0 12px rgba(14, 165, 233, .32);
-}
-
-.neon-ok:hover {
-    box-shadow: 0 0 18px rgba(56, 189, 248, .78), 0 0 32px rgba(14, 165, 233, .32), inset 0 0 12px rgba(56, 189, 248, .32), inset 0 0 10px rgba(167, 243, 208, .24);
-}
-
-.actions {
-    display: flex;
-    gap: .5rem;
-    justify-content: center;
-    align-items: center;
 }
 
 /* ===== CHIPS ===== */
@@ -158,7 +147,7 @@
     box-shadow: 0 0 10px rgba(56, 189, 248, .38);
 }
 
-/* botão X dentro do chip de categoria extra (opcional) */
+/* botão X dentro do chip de categoria extra */
 .chip-x {
     margin-left: 8px;
     background: transparent;
@@ -193,7 +182,7 @@
 /* ===== DROPDOWN custom p/ datalist ===== */
 .mini-dd {
     position: absolute;
-    z-index: 100000;
+    z-index: 120000;
     display: none;
     max-height: var(--dd-max-height);
     overflow: auto;
@@ -218,7 +207,7 @@
     padding: 10px 12px;
     border-radius: 8px;
     color: #e7f7ff;
-    cursor: pointer;
+    cursor: default;
 }
 
 .mini-dd li:hover,
@@ -227,7 +216,7 @@
     outline: 1px solid rgba(56, 189, 248, .45);
 }
 
-/* layout do item: texto + botão X */
+/* layout do item da dropdown: texto + botão X */
 .mini-dd .dd-row {
     display: flex;
     align-items: center;
@@ -239,9 +228,10 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    pointer-events: none;
 }
 
-/* ===== Botão X circular — X desenhado via CSS ===== */
+/* botão circular com X — centralizado por pseudo-elementos */
 .mini-dd .dd-remove {
     position: relative;
     display: inline-block;
@@ -251,10 +241,9 @@
     border: 1px solid rgba(248, 113, 113, .55);
     background: transparent;
     color: #fecaca;
-    /* currentColor para as linhas do X */
     padding: 0;
     cursor: pointer;
-    vertical-align: middle;
+    flex: none;
     box-sizing: border-box;
 }
 
@@ -265,9 +254,7 @@
     left: 50%;
     top: 50%;
     width: 12px;
-    /* comprimento do traço */
     height: 2px;
-    /* espessura */
     background: currentColor;
     transform-origin: center;
     transform: translate(-50%, -50%) rotate(45deg);
@@ -282,6 +269,22 @@
     color: #fff;
     border-color: #ef4444;
     box-shadow: 0 0 10px rgba(239, 68, 68, .35);
+}
+
+/* "Criar categoria" */
+.mini-dd .dd-create {
+    padding: 10px 12px;
+    border-radius: 8px;
+    color: #d7f3ff;
+    cursor: pointer;
+    margin-top: 4px;
+    border: 1px dashed rgba(56, 189, 248, .45);
+    text-align: center;
+}
+
+.mini-dd .dd-create:hover {
+    background: linear-gradient(180deg, rgba(56, 189, 248, .18), rgba(56, 189, 248, .12));
+    outline: 1px solid rgba(56, 189, 248, .45);
 }
 
 .mini-dd::-webkit-scrollbar {
@@ -299,14 +302,18 @@
 }
 
 /* ===== TOOLTIP ===== */
+/* ===== TOOLTIP ===== */
 .tip-layer {
     position: fixed;
     left: 0;
     top: 0;
+
+    /* 🔼 garante que o tooltip fique na frente da .mini-dd e do restante */
+    z-index: 200000;
+
     transform: translate(-50%, calc(-1 * var(--tooltip-anim-shift))) scale(.98);
     opacity: 0;
-    pointer-events: none;
-    z-index: 100000;
+    pointer-events: none;   /* não intercepta cliques no X */
     padding: 8px 10px;
     border-radius: 10px;
     font-size: 12px;
@@ -413,9 +420,12 @@
 }
 
 /* ===== SWEETALERT (dark) ===== */
+/* já existe este seletor — só acrescente a linha do z-index */
 .swal2-container {
     padding: clamp(12px, 4vh, 28px) !important;
+    z-index: 200000 !important;   /* <-- garante que fica acima da mini-dd (100000) */
 }
+
 
 .swal2-popup.dark-modal {
     background: #0f172a !important;
@@ -447,48 +457,44 @@
     justify-content: center !important;
 }
 
-.swal2-popup .swal2-styled {
-    background: none !important;
-    box-shadow: none !important;
-    border: none !important;
-}
-
-.swal2-popup .swal2-actions .swal2-styled.neon-btn {
-    height: 40px !important;
-    padding: 0 18px !important;
-    border-radius: 14px !important;
-    font-weight: 800 !important;
-    line-height: 40px !important;
-    letter-spacing: .02em !important;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.swal2-popup .swal2-actions .neon-save {
-    color: #e7f7ff !important;
-    background: linear-gradient(135deg, rgba(14, 165, 233, .20), rgba(56, 189, 248, .26)) !important;
-    border: 1px solid rgba(56, 189, 248, .65) !important;
-    text-shadow: 0 0 6px rgba(56, 189, 248, .34) !important;
-    box-shadow: 0 0 12px rgba(56, 189, 248, .55), inset 0 0 12px rgba(14, 165, 233, .26) !important;
-}
-
-.swal2-popup .swal2-actions .neon-danger {
+/* === SWEETALERT — Botões padrão neon === */
+.swal2-popup.dark-modal .swal2-confirm {
+    /* vermelho ("Sim", "Sim, excluir") */
     color: #ffeef0 !important;
     background: linear-gradient(135deg, rgba(239, 68, 68, .20), rgba(185, 28, 28, .26)) !important;
     border: 1px solid rgba(248, 113, 113, .65) !important;
     text-shadow: 0 0 6px rgba(239, 68, 68, .34) !important;
     box-shadow: 0 0 12px rgba(239, 68, 68, .55), inset 0 0 12px rgba(185, 28, 28, .26) !important;
+    border-radius: 14px !important;
+    font-weight: 800 !important;
+    padding: 0 20px !important;
+    height: 42px !important;
+    min-width: 120px !important;
 }
 
-.swal2-popup .swal2-actions .neon-confirm {
+.swal2-popup.dark-modal .swal2-cancel {
+    /* azul ("Não", "Cancelar") */
     color: #e7f7ff !important;
-    background: linear-gradient(135deg, rgba(34, 197, 94, .20), rgba(16, 185, 129, .26)) !important;
-    border: 1px solid rgba(74, 222, 128, .65) !important;
-    text-shadow: 0 0 6px rgba(34, 197, 94, .34) !important;
-    box-shadow: 0 0 12px rgba(34, 197, 94, .55), inset 0 0 12px rgba(16, 185, 129, .26) !important;
+    background: linear-gradient(135deg, rgba(14, 165, 233, .20), rgba(56, 189, 248, .26)) !important;
+    border: 1px solid rgba(56, 189, 248, .65) !important;
+    text-shadow: 0 0 6px rgba(56, 189, 248, .34) !important;
+    box-shadow: 0 0 12px rgba(56, 189, 248, .55), inset 0 0 12px rgba(14, 165, 233, .26) !important;
+    border-radius: 14px !important;
+    font-weight: 800 !important;
+    padding: 0 20px !important;
+    height: 42px !important;
+    min-width: 120px !important;
 }
 
+.swal2-popup.dark-modal .swal2-confirm:hover,
+.swal2-popup.dark-modal .swal2-cancel:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.07);
+    border-color: rgba(56, 189, 248, .95);
+    box-shadow: 0 0 18px rgba(56, 189, 248, .78), 0 0 32px rgba(14, 165, 233, .32), inset 0 0 12px rgba(56, 189, 248, .32);
+}
+
+/* estados/utils */
 .neon-btn:disabled {
     opacity: .55;
     cursor: not-allowed;
@@ -496,7 +502,7 @@
     transform: none;
 }
 
-/* ===== Modal de senha (olho dentro) ===== */
+/* ===== Modal de senha (olho) ===== */
 .dark-modal .pwd-wrap {
     position: relative;
     margin: 10px auto 6px;
@@ -538,7 +544,6 @@
     place-items: center;
     background: transparent;
     border: none;
-    outline: none;
     color: #d7f3ff;
     cursor: pointer;
     transition: transform .12s, filter .18s, opacity .18s;
@@ -579,10 +584,8 @@
     opacity: .9;
 }
 
-/* ========================= */
-/* ===== MOBILE (≤640px) ====*/
-/* ========================= */
-@media (max-width: 640px) {
+/* ===== MOBILE ===== */
+@media (max-width:640px) {
     .neon-text {
         font-size: clamp(26px, 9vw, 34px) !important;
         line-height: 1.12 !important;
@@ -698,13 +701,8 @@
     #campaignTable tbody td[data-label="Tema"] .tema-cell {
         display: flex !important;
         align-items: center;
-        gap: var(--tema-gap);
+        gap: .5rem;
         min-height: unset;
-    }
-
-    :root {
-        --tema-badge: 28px;
-        --tema-gap: .5rem;
     }
 
     .tema-text {
@@ -749,8 +747,7 @@
     }
 }
 
-/* ===== AJUSTES EXTRA PEQUENOS (≤480px) ===== */
-@media (max-width: 480px) {
+@media (max-width:480px) {
     .swal2-container {
         padding: 12px !important;
     }
