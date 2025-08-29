@@ -13,15 +13,12 @@ import {
 } from "./core.js";
 
 /**
- * Dash Artigos — UI completo (exclusão sem senha):
+ * Dash Artigos — UI com categorias dinâmicas + remover em todas as opções
  * - Servidor como verdade (merge remoto autoritativo)
  * - Sync entre dispositivos (polling 5s + refresh pós-ação)
  * - Outbox com backoff e keepalive
- * - Exclusão: apenas confirmação (SEM senha)
- * - Botão de conexão: gira o ícone do próprio botão (sem spinner extra)
- * - Botão de Sync: “Sincronizando...” (estático), sem piscas/letras
- * - Botão Salvar: “Salvando...” (estático), sem spinner
- * - Tabela responsiva, tooltips e dropdown customizados
+ * - Exclusão de campanha: confirmação simples (sem senha)
+ * - Dropdown custom para inputs com list (categoria) com criar/remover
  */
 
 let render; // definido após init()
@@ -45,10 +42,10 @@ function startUI() {
         .map(o => o.value || o.label || "")
         .filter(Boolean);
 
-    // carrega as extras salvas no navegador
+    // carrega extras do localStorage
     let categoriasExtras = getCategories();
 
-    // utilitários
+    // utils
     const norm = s => String(s || "").trim().toLowerCase();
     const uniqCI = arr => {
         const seen = new Set();
@@ -61,7 +58,7 @@ function startUI() {
     };
     const existsCI = (val, list) => list.some(v => norm(v) === norm(val));
 
-    // renderiza o datalist (padrão + extras), em ordem alfabética
+    // renderiza o datalist (padrão + extras) ordenado
     function renderCategorias() {
         const all = uniqCI([...defaultCats, ...categoriasExtras])
             .sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
@@ -74,7 +71,7 @@ function startUI() {
     }
     renderCategorias();
 
-    // verifica e cria se não existir (com confirmação)
+    // criar categoria (se não existir)
     async function tentarCriarCategoria(valor) {
         if (!valor) return;
         const allNow = uniqCI([...defaultCats, ...categoriasExtras]);
@@ -105,20 +102,18 @@ function startUI() {
         });
     }
 
-    // ao sair do campo (fallback extra)
+    // blur + submit (fallback para criar)
     categoriaInput.addEventListener("blur", () => {
         const val = categoriaInput.value.trim();
         if (val) tentarCriarCategoria(val);
     });
-
-    // garante também no envio do formulário (se usuário não saiu do campo)
     const formEl = document.getElementById("campaignForm");
     formEl.addEventListener("submit", async () => {
         const val = categoriaInput.value.trim();
         if (val) await tentarCriarCategoria(val);
     }, { capture: true });
 
-    // ===== helper link
+    // helper link
     function linkBtn(label, url) {
         const u = sanitizeURL(url); if (!u) return "";
         return `
@@ -253,7 +248,6 @@ function startUI() {
             const index = Number(btnDelete.dataset.index);
             const c = campanhas[index]; if (!c) return;
 
-            // === SOMENTE CONFIRMAÇÃO (sem senha) ===
             const ask = await Swal.fire({
                 customClass: { popup: "dark-modal", confirmButton: "neon-btn neon-danger", cancelButton: "neon-btn neon-save" },
                 background: "#0f172a", color: "#e2e8f0",
@@ -264,7 +258,6 @@ function startUI() {
             });
             if (!ask.isConfirmed) return;
 
-            // exclusão local
             campanhas.splice(index, 1); saveData(); render();
             const editIdxEl = document.getElementById("editIndex");
             if (editIdxEl && Number(editIdxEl.value) === index) { form.reset(); editIdxEl.value = -1; }
@@ -295,7 +288,6 @@ function startUI() {
         const submitBtn = form.querySelector('button[type="submit"]');
         const originalSubmitTxt = submitBtn ? submitBtn.textContent : "";
 
-        // UI: texto estático, sem spinner
         if (submitBtn) {
             submitBtn.textContent = "Salvando...";
             submitBtn.setAttribute("aria-busy", "true");
@@ -321,7 +313,6 @@ function startUI() {
             plataforma: form.plataforma.value.trim(),
             link_criativos: safeCriativos || form.link_criativos.value.trim(),
             idioma: idiomaInput.value.trim()
-            // updated vem do servidor
         };
 
         const op = existing ? "update" : "insert";
@@ -361,7 +352,7 @@ function startUI() {
     });
 
     /* =========================
-       Datalist dropdown custom (com "Criar categoria")
+       Dropdown custom (com Criar + Remover)
     ========================= */
     const activeDD = { el: null, input: null, listId: null };
     let skipNextBlurClose = false;
@@ -381,30 +372,82 @@ function startUI() {
         dd.style.top = (rect.bottom + window.scrollY + ddOffsetY()) + "px";
     }
 
-    // NOVA: renderiza lista + entrada "Criar categoria"
+    // renderiza a lista da dropdown com botões de remover e opção "Criar"
     function renderMiniList(ul, dl, term, anchorInput) {
         const t = String(term || "").trim();
         const tLower = t.toLowerCase();
 
         ul.innerHTML = "";
 
-        // opções existentes filtradas
+        // opções (todas) com botão X
         Array.from(dl.options).forEach(opt => {
             const txt = opt.value || opt.label || "";
             if (!t || txt.toLowerCase().includes(tLower)) {
                 const li = document.createElement("li");
-                li.textContent = txt;
+                const row = document.createElement("div");
+                row.className = "dd-row";
+
+                const label = document.createElement("span");
+                label.className = "dd-label";
+                label.textContent = txt;
+
+                const btn = document.createElement("button");
+                btn.className = "dd-remove";
+                btn.type = "button";
+                btn.setAttribute("aria-label", `Remover categoria ${txt}`);
+                btn.title = "Remover";
+
+                // habilita remover apenas para extras; padrões ficam desabilitados
+                const isDefault = existsCI(txt, defaultCats);
+                if (isDefault) {
+                    btn.disabled = true;
+                    btn.title = "Categoria padrão (não removível)";
+                } else {
+                    btn.addEventListener("click", async (ev) => {
+                        ev.stopPropagation();
+                        const ask = await Swal.fire({
+                            title: "Remover categoria?",
+                            text: `Deseja remover "${txt}" das opções? (não afeta registros já salvos)`,
+                            icon: "warning",
+                            showCancelButton: true,
+                            confirmButtonText: "Remover",
+                            cancelButtonText: "Cancelar",
+                            background: "#0f172a",
+                            color: "#e2e8f0"
+                        });
+                        if (!ask.isConfirmed) return;
+
+                        categoriasExtras = categoriasExtras.filter(c => norm(c) !== norm(txt));
+                        saveCategories(categoriasExtras);
+                        renderCategorias();
+                        renderMiniList(ul, dl, anchorInput.value, anchorInput);
+
+                        Swal.fire({
+                            toast: true, position: "bottom-end", timer: 1400, showConfirmButton: false,
+                            icon: "success", title: "Categoria removida",
+                            background: "#0f172a", color: "#e2e8f0"
+                        });
+                    });
+                }
+
+                // clique no texto seleciona a categoria
                 li.addEventListener("mousedown", (ev) => {
+                    // se clicou no botão, já tratado acima
+                    if (ev.target.closest(".dd-remove")) return;
                     ev.preventDefault();
                     anchorInput.value = txt;
                     closeDD();
                     anchorInput.dispatchEvent(new Event("change", { bubbles: true }));
                 });
+
+                row.appendChild(label);
+                row.appendChild(btn);
+                li.appendChild(row);
                 ul.appendChild(li);
             }
         });
 
-        // oferta de criação
+        // criar se digitou e não existe
         const allNow = uniqCI([...defaultCats, ...categoriasExtras]);
         const deveOferecerCriar = !!t && !existsCI(t, allNow);
         if (deveOferecerCriar) {
@@ -413,9 +456,9 @@ function startUI() {
             liAdd.textContent = `➕ Criar categoria “${t}”`;
             liAdd.addEventListener("mousedown", async (ev) => {
                 ev.preventDefault();
-                await tentarCriarCategoria(t);   // cria e salva
-                renderCategorias();              // reconstroi o <datalist> ordenado
-                anchorInput.value = t;           // coloca no campo
+                await tentarCriarCategoria(t);
+                renderCategorias();
+                anchorInput.value = t;
                 closeDD();
                 anchorInput.dispatchEvent(new Event("change", { bubbles: true }));
             });
@@ -434,7 +477,6 @@ function startUI() {
         dd.appendChild(ul);
         document.body.appendChild(dd);
 
-        // inicial: lista completa (sem filtro) + "criar" se couber
         renderMiniList(ul, dl, "", anchorInput);
 
         requestAnimationFrame(() => dd.classList.add("open"));
@@ -474,7 +516,6 @@ function startUI() {
         inp.addEventListener("focus", () => { if (!activeDD.el) openDD(inp); });
         inp.addEventListener("click", () => { if (!activeDD.el) openDD(inp); });
 
-        // FILTRO + "Criar categoria …"
         inp.addEventListener("input", () => {
             if (!activeDD.el) return;
             const dl = document.getElementById(activeDD.listId);
@@ -489,7 +530,7 @@ function startUI() {
     });
 
     /* =========================
-       Tooltip (igual)
+       Tooltip
     ========================= */
     const tip = document.createElement("div"); tip.className = "tip-layer"; document.body.appendChild(tip);
     let tipTarget = null;
@@ -529,7 +570,7 @@ function startUI() {
     window.addEventListener("resize", () => { if (tipTarget) positionTip(tipTarget); });
 
     /* =========================
-       Conexão (ping) — ícone gira via .loading
+       Conexão (ping)
     ========================= */
     function setConnBtn(state, tipText) {
         if (!connBtn) return;
@@ -551,23 +592,17 @@ function startUI() {
     const classify = (ms) => (ms < 350 ? "fast" : ms < 1000 ? "med" : "slow");
     async function runConnCheck() {
         if (!connBtn) return;
-        connBtn.classList.add("loading"); // gira o SVG do botão
+        connBtn.classList.add("loading");
 
         if (!navigator.onLine) {
             setConnBtn("status-off", "Sem conexão com a internet");
-            Swal.fire({
-                toast: true, position: "bottom-end", timer: 2500, showConfirmButton: false, icon: "error",
-                title: "Offline", text: "Sem conexão com a internet.", background: "#0f172a", color: "#e2e8f0"
-            });
+            Swal.fire({ toast: true, position: "bottom-end", timer: 2500, showConfirmButton: false, icon: "error", title: "Offline", text: "Sem conexão com a internet.", background: "#0f172a", color: "#e2e8f0" });
             return;
         }
         const r = await pingSheets(7000);
         if (!r.ok) {
             setConnBtn("status-off", "Web App sem resposta");
-            Swal.fire({
-                toast: true, position: "bottom-end", timer: 2800, showConfirmButton: false, icon: "error",
-                title: "Sem resposta do Web App", text: "Falha ao contatar o Apps Script.", background: "#0f172a", color: "#e2e8f0"
-            });
+            Swal.fire({ toast: true, position: "bottom-end", timer: 2800, showConfirmButton: false, icon: "error", title: "Sem resposta do Web App", text: "Falha ao contatar o Apps Script.", background: "#0f172a", color: "#e2e8f0" });
             return;
         }
         const speed = classify(r.ms);
@@ -583,11 +618,11 @@ function startUI() {
     }
     if (connBtn) {
         connBtn.addEventListener("click", runConnCheck);
-        setTimeout(runConnCheck, 800); // ping inicial
+        setTimeout(runConnCheck, 800);
     }
 
     /* =========================
-       Botão "Sync" — sem piscar/letra-a-letra
+       Botão "Sync"
     ========================= */
     if (syncBtn) {
         const originalSyncTxt = syncBtn.textContent.trim() || "Sync";
