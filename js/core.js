@@ -310,3 +310,16 @@ export function flushOutboxKeepalive() {
     }
   }
 }
+// Guardar categorias criadas pelo usuário
+export function getCategories() {
+  try { 
+    return JSON.parse(localStorage.getItem("categorias_extra")) || []; 
+  } catch { 
+    return []; 
+  }
+}
+
+export function saveCategories(arr) {
+  localStorage.setItem("categorias_extra", JSON.stringify(arr || []));
+}
+

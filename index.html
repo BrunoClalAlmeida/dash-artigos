@@ -63,6 +63,10 @@
             <label for="categoria">Categoria</label>
             <input list="lista-categorias" id="categoria" name="categoria" class="dark-input"
               placeholder="Escolha uma Categoria..." required>
+
+            <!-- ⬇️ NOVO: chips de categorias extras com botão X -->
+            <div id="categoriasExtrasWrap" class="mt-2 flex flex-wrap gap-2" aria-live="polite"></div>
+
             <datalist id="lista-categorias">
               <option>Anuidade</option>
               <option>Anvisa</option>

@@ -3,12 +3,13 @@
 
 import {
     WEB_APP_URL, SHEETS_KEY,
-    DELETE_PASSWORD, CASE_INSENSITIVE, PASS_NORM, normalizeForCompare, // continua importado mas não usado
+    DELETE_PASSWORD, CASE_INSENSITIVE, PASS_NORM, normalizeForCompare,
     SERVER_REFRESH_MS, RETRY_INTERVAL_MS,
     campanhas, saveData,
     uid, esc, sanitizeURL,
     sendToSheets, drainOutbox, refreshFromServer, enqueue,
-    flushOutboxKeepalive
+    flushOutboxKeepalive,
+    getCategories, saveCategories
 } from "./core.js";
 
 /**
@@ -33,6 +34,89 @@ function startUI() {
     const paisInput = document.getElementById("pais");
     const idiomaInput = document.getElementById("idioma");
     const categoriaInput = document.getElementById("categoria");
+    const categoriaDL = document.getElementById("lista-categorias");
+
+    // =========================
+    // Categorias dinâmicas
+    // =========================
+
+    // pega as categorias que já estão no HTML
+    const defaultCats = Array.from(categoriaDL?.options || [])
+        .map(o => o.value || o.label || "")
+        .filter(Boolean);
+
+    // carrega as extras salvas no navegador
+    let categoriasExtras = getCategories();
+
+    // utilitários
+    const norm = s => String(s || "").trim().toLowerCase();
+    const uniqCI = arr => {
+        const seen = new Set();
+        return arr.filter(v => {
+            const k = norm(v);
+            if (!k || seen.has(k)) return false;
+            seen.add(k);
+            return true;
+        });
+    };
+    const existsCI = (val, list) => list.some(v => norm(v) === norm(val));
+
+    // renderiza o datalist (padrão + extras), em ordem alfabética
+    function renderCategorias() {
+        const all = uniqCI([...defaultCats, ...categoriasExtras])
+            .sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
+        categoriaDL.innerHTML = "";
+        for (const cat of all) {
+            const opt = document.createElement("option");
+            opt.value = cat;
+            categoriaDL.appendChild(opt);
+        }
+    }
+    renderCategorias();
+
+    // verifica e cria se não existir (com confirmação)
+    async function tentarCriarCategoria(valor) {
+        if (!valor) return;
+        const allNow = uniqCI([...defaultCats, ...categoriasExtras]);
+        if (existsCI(valor, allNow)) return;
+
+        const res = await Swal.fire({
+            title: "Criar nova categoria?",
+            text: `A categoria "${valor}" não existe. Deseja criar?`,
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonText: "Sim",
+            cancelButtonText: "Não",
+            background: "#0f172a",
+            color: "#e2e8f0"
+        });
+        if (!res.isConfirmed) return;
+
+        if (!existsCI(valor, categoriasExtras)) {
+            categoriasExtras.push(valor.trim());
+            saveCategories(categoriasExtras);
+        }
+        renderCategorias();
+
+        Swal.fire({
+            toast: true, position: "bottom-end", timer: 1400, showConfirmButton: false,
+            icon: "success", title: "Categoria criada!",
+            background: "#0f172a", color: "#e2e8f0"
+        });
+    }
+
+    // ao sair do campo (fallback extra)
+    categoriaInput.addEventListener("blur", () => {
+        const val = categoriaInput.value.trim();
+        if (val) tentarCriarCategoria(val);
+    });
+
+    // garante também no envio do formulário (se usuário não saiu do campo)
+    const formEl = document.getElementById("campaignForm");
+    formEl.addEventListener("submit", async () => {
+        const val = categoriaInput.value.trim();
+        if (val) await tentarCriarCategoria(val);
+    }, { capture: true });
 
     // ===== helper link
     function linkBtn(label, url) {
@@ -277,7 +361,7 @@ function startUI() {
     });
 
     /* =========================
-       Datalist dropdown custom (igual)
+       Datalist dropdown custom (com "Criar categoria")
     ========================= */
     const activeDD = { el: null, input: null, listId: null };
     let skipNextBlurClose = false;
@@ -296,26 +380,67 @@ function startUI() {
         dd.style.left = (rect.left + window.scrollX) + "px";
         dd.style.top = (rect.bottom + window.scrollY + ddOffsetY()) + "px";
     }
+
+    // NOVA: renderiza lista + entrada "Criar categoria"
+    function renderMiniList(ul, dl, term, anchorInput) {
+        const t = String(term || "").trim();
+        const tLower = t.toLowerCase();
+
+        ul.innerHTML = "";
+
+        // opções existentes filtradas
+        Array.from(dl.options).forEach(opt => {
+            const txt = opt.value || opt.label || "";
+            if (!t || txt.toLowerCase().includes(tLower)) {
+                const li = document.createElement("li");
+                li.textContent = txt;
+                li.addEventListener("mousedown", (ev) => {
+                    ev.preventDefault();
+                    anchorInput.value = txt;
+                    closeDD();
+                    anchorInput.dispatchEvent(new Event("change", { bubbles: true }));
+                });
+                ul.appendChild(li);
+            }
+        });
+
+        // oferta de criação
+        const allNow = uniqCI([...defaultCats, ...categoriasExtras]);
+        const deveOferecerCriar = !!t && !existsCI(t, allNow);
+        if (deveOferecerCriar) {
+            const liAdd = document.createElement("li");
+            liAdd.className = "dd-create";
+            liAdd.textContent = `➕ Criar categoria “${t}”`;
+            liAdd.addEventListener("mousedown", async (ev) => {
+                ev.preventDefault();
+                await tentarCriarCategoria(t);   // cria e salva
+                renderCategorias();              // reconstroi o <datalist> ordenado
+                anchorInput.value = t;           // coloca no campo
+                closeDD();
+                anchorInput.dispatchEvent(new Event("change", { bubbles: true }));
+            });
+            ul.appendChild(liAdd);
+        }
+    }
+
     function buildDD(listId, anchorInput) {
         const dl = document.getElementById(listId); if (!dl) return null;
         const dd = document.createElement("div"); dd.className = "mini-dd";
         positionDD(dd, anchorInput);
         dd.addEventListener("mouseenter", () => { hoveringDD = true; });
         dd.addEventListener("mouseleave", () => { hoveringDD = false; });
+
         const ul = document.createElement("ul");
-        Array.from(dl.options).forEach(opt => {
-            const li = document.createElement("li");
-            li.textContent = opt.value || opt.label || "";
-            li.addEventListener("mousedown", (ev) => {
-                ev.preventDefault(); anchorInput.value = li.textContent; closeDD();
-                anchorInput.dispatchEvent(new Event("change", { bubbles: true }));
-            });
-            ul.appendChild(li);
-        });
-        dd.appendChild(ul); document.body.appendChild(dd);
+        dd.appendChild(ul);
+        document.body.appendChild(dd);
+
+        // inicial: lista completa (sem filtro) + "criar" se couber
+        renderMiniList(ul, dl, "", anchorInput);
+
         requestAnimationFrame(() => dd.classList.add("open"));
         return dd;
     }
+
     function closeDD() {
         if (activeDD.el) {
             activeDD.el.remove(); activeDD.el = null;
@@ -323,12 +448,14 @@ function startUI() {
             activeDD.input = null; activeDD.listId = null; hoveringDD = false;
         }
     }
+
     function openDD(input) {
         const listId = input.getAttribute("list"); if (!listId) return;
         input.setAttribute("data-real-list", listId); input.setAttribute("list", "");
         const dd = buildDD(listId, input);
         activeDD.el = dd; activeDD.input = input; activeDD.listId = listId;
     }
+
     document.addEventListener("mousedown", (ev) => {
         if (activeDD.el) {
             const inside = activeDD.el.contains(ev.target) || activeDD.input === ev.target;
@@ -341,29 +468,20 @@ function startUI() {
         closeDD();
     }, true);
     window.addEventListener("resize", () => { if (activeDD.el && activeDD.input) positionDD(activeDD.el, activeDD.input); });
+
     document.querySelectorAll("input[list]").forEach(inp => {
         inp.addEventListener("pointerdown", () => { if (!activeDD.el) openDD(inp); skipNextBlurClose = true; });
         inp.addEventListener("focus", () => { if (!activeDD.el) openDD(inp); });
         inp.addEventListener("click", () => { if (!activeDD.el) openDD(inp); });
+
+        // FILTRO + "Criar categoria …"
         inp.addEventListener("input", () => {
             if (!activeDD.el) return;
             const dl = document.getElementById(activeDD.listId);
-            const term = inp.value.toLowerCase();
             const ul = activeDD.el.querySelector("ul");
-            ul.innerHTML = "";
-            Array.from(dl.options).forEach(opt => {
-                const v = (opt.value || "").toLowerCase();
-                if (!term || v.includes(term)) {
-                    const li = document.createElement("li");
-                    li.textContent = opt.value || opt.label || "";
-                    li.addEventListener("mousedown", (ev) => {
-                        ev.preventDefault(); inp.value = li.textContent; closeDD();
-                        inp.dispatchEvent(new Event("change", { bubbles: true }));
-                    });
-                    ul.appendChild(li);
-                }
-            });
+            renderMiniList(ul, dl, inp.value, inp);
         });
+
         inp.addEventListener("blur", () => {
             if (skipNextBlurClose) { skipNextBlurClose = false; return; }
             setTimeout(closeDD, 120);
