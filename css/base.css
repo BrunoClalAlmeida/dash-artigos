@@ -35,8 +35,6 @@
   /* badge do índice do tema + gap do cabeçalho */
   --tema-badge: 32px;
   --tema-gap: .6rem;
-  /* ajuste fino para alinhar o cabeçalho "Tema" com o texto (não o badge) */
-  --tema-align-fix: 10px;
 
   /* imagem de fundo (caminho relativo a partir de /css) */
   --bg-url: url('../img/bg-user.jpg');
@@ -179,13 +177,17 @@ body {
 .dark-input:-webkit-autofill:active {
   -webkit-text-fill-color: var(--text-main);
   caret-color: var(--text-main);
-  box-shadow: 0 0 0 1000px rgba(6, 14, 26, .92) inset, 0 0 0 1px rgba(148, 163, 184, .35) inset, 0 0 14px rgba(56, 189, 248, .18);
+  box-shadow: 0 0 0 1000px rgba(6, 14, 26, .92) inset,
+    0 0 0 1px rgba(148, 163, 184, .35) inset,
+    0 0 14px rgba(56, 189, 248, .18);
   border-color: rgba(148, 163, 184, .35);
   transition: background-color 99999s ease-in-out 0s;
 }
 
 .dark-input:-moz-autofill {
-  box-shadow: 0 0 0 1000px rgba(6, 14, 26, .92) inset, 0 0 0 1px rgba(148, 163, 184, .35) inset, 0 0 14px rgba(56, 189, 248, .18);
+  box-shadow: 0 0 0 1000px rgba(6, 14, 26, .92) inset,
+    0 0 0 1px rgba(148, 163, 184, .35) inset,
+    0 0 14px rgba(56, 189, 248, .18);
   -moz-text-fill-color: var(--text-main);
   caret-color: var(--text-main);
 }
@@ -196,7 +198,7 @@ textarea {
   color-scheme: dark;
 }
 
-/* === TABELA === */
+/* === TABELA (DESKTOP) === */
 #campaignTable {
   table-layout: auto;
   width: 100%;
@@ -211,10 +213,10 @@ textarea {
   text-shadow: 0 0 6px rgba(56, 189, 248, .25);
 }
 
-/* Cabeçalho "Tema" alinhado ao texto do registro (após badge) */
+/* alinhar cabeçalho Tema exatamente onde começam os textos do Tema */
 #campaignTable thead th:nth-child(1) {
   text-align: left;
-  padding-left: calc(1.5rem + var(--tema-badge) + var(--tema-gap) - var(--tema-align-fix));
+  padding-left: calc(1.5rem + var(--tema-badge) + var(--tema-gap));
 }
 
 .table-section tbody td {
@@ -225,7 +227,7 @@ textarea {
   word-break: keep-all;
 }
 
-/* célula do Tema com badge + texto (texto NÃO corta) */
+/* célula do Tema com badge + texto */
 .tema-cell {
   display: grid;
   grid-template-columns: var(--tema-badge) 1fr;
@@ -251,12 +253,9 @@ textarea {
   text-shadow: 0 0 6px rgba(56, 189, 248, .38);
 }
 
-/* primeira coluna (Tema) — texto inteiro e à esquerda */
 #campaignTable tbody td:nth-child(1) {
   white-space: normal;
-  /* várias linhas quando precisar */
   overflow-wrap: break-word;
-  /* evita estouro */
   max-width: 480px;
   text-align: left;
 }
@@ -273,9 +272,6 @@ textarea {
   background-clip: text;
   color: transparent;
   text-shadow: 0 0 6px rgba(56, 189, 248, .35), 0 0 20px rgba(14, 165, 233, .22);
-  white-space: normal;
-  overflow: visible;
-  text-overflow: clip;
 }
 
 /* espaçamentos/ações */
@@ -342,10 +338,22 @@ textarea {
   margin-top: 0;
 }
 
+/* ==== clamp defensivo de 2 linhas (sem comprimir o desktop) ==== */
+.tema-ellipsis {
+  display: block;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  max-height: none;
+  line-height: inherit;
+}
+
 /* ========================= */
 /* ===== MOBILE (≤640px) ====*/
 /* ========================= */
 @media (max-width: 640px) {
+
+  /* título proporcional */
   .neon-text {
     font-size: clamp(26px, 9vw, 34px) !important;
     line-height: 1.12 !important;
@@ -353,11 +361,13 @@ textarea {
     text-align: center !important;
   }
 
+  /* respiro no topo */
   .page-wrap .max-w-6xl>header {
     margin-top: 6px !important;
     margin-bottom: 10px !important;
   }
 
+  /* cards mais leves */
   .form-section.card,
   .table-section.card {
     padding: 14px !important;
@@ -365,24 +375,28 @@ textarea {
     box-shadow: 0 0 0 1px rgba(56, 189, 248, .35) inset, 0 6px 18px rgba(0, 0, 0, .35) !important;
   }
 
+  /* labels menores e à esquerda */
   .form-section label {
     font-size: .92rem !important;
     text-align: left !important;
     margin-bottom: .35rem !important;
   }
 
+  /* inputs confortáveis */
   .dark-input {
     height: 44px !important;
     font-size: 1rem !important;
     padding: .55rem .75rem !important;
   }
 
+  /* botão Salvar full width */
   .form-section .neon-btn.neon-save {
     width: 100% !important;
     height: 44px !important;
     font-size: 1rem !important;
   }
 
+  /* botões fixos */
   #syncNowBtn {
     top: 10px !important;
     right: 12px !important;
@@ -408,7 +422,8 @@ textarea {
     height: 18px !important;
   }
 
-  /* tabela em cards */
+  /* ===== TABELA EM CARDS ===== */
+
   .table-section thead {
     position: absolute !important;
     width: 1px;
@@ -434,15 +449,24 @@ textarea {
     box-shadow: 0 0 14px rgba(14, 165, 233, .16);
     margin: 12px 0;
     padding: 10px 10px;
+    position: relative;
+  }
+
+  /* calha fixa de rótulos (garante alinhamento entre TODAS as linhas) */
+  :root {
+    --mobile-label-w: 110px;
+    /* largura do rótulo (ajuste fino se quiser) */
+    --mobile-label-gap: 18px;
+    /* espaço entre rótulo e conteúdo */
   }
 
   #campaignTable tbody td {
     border: none !important;
-    padding: 10px 10px 10px 118px !important;
-    position: relative;
+    padding: 10px 10px 10px calc(var(--mobile-label-w) + var(--mobile-label-gap)) !important;
     text-align: left !important;
     white-space: normal !important;
     overflow-wrap: anywhere;
+    position: relative;
   }
 
   #campaignTable tbody td::before {
@@ -450,7 +474,7 @@ textarea {
     position: absolute;
     left: 10px;
     top: 10px;
-    width: 100px;
+    width: var(--mobile-label-w);
     font-family: var(--font-title);
     font-weight: 700;
     letter-spacing: .04em;
@@ -458,27 +482,34 @@ textarea {
     text-shadow: 0 0 6px rgba(56, 189, 248, .25);
   }
 
+  /* Tema: badge ancorado na calha; texto começa alinhado com os demais */
   #campaignTable tbody td[data-label="Tema"] {
-    padding-top: 14px !important;
-    padding-bottom: 14px !important;
+    position: relative;
   }
 
   #campaignTable tbody td[data-label="Tema"] .tema-cell {
-    grid-template-columns: 28px 1fr !important;
+    display: block !important;
+    min-height: 44px;
   }
 
-  :root {
-    --tema-badge: 28px;
-    --tema-gap: .5rem;
+  #campaignTable tbody td[data-label="Tema"] .tema-index {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    inline-size: var(--tema-badge);
+    block-size: var(--tema-badge);
   }
 
-  .tema-text {
-    font-size: 1rem !important;
-    letter-spacing: .04em !important;
-    white-space: normal !important;
-    overflow-wrap: break-word !important;
+  #campaignTable tbody td[data-label="Tema"] .tema-text {
+    display: block;
+    margin-left: 0;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
   }
 
+  /* chips quebram */
   .table-section tbody td .chip,
   .table-section tbody td .chip--pill,
   .table-section tbody td .chip--hollow {
@@ -496,6 +527,7 @@ textarea {
     letter-spacing: .04em !important;
   }
 
+  /* ações em coluna ocupando 100% */
   .actions {
     display: grid !important;
     grid-template-columns: 1fr !important;
@@ -509,6 +541,7 @@ textarea {
     min-width: 0 !important;
   }
 
+  /* área da tabela sem overflow horizontal */
   .table-section .overflow-x-auto {
     overflow: visible !important;
     max-height: none !important;
